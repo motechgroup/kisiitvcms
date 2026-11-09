@@ -26,7 +26,7 @@ class HomePageTest extends TestCase
 
         $response->assertStatus(200);
         $response->assertSee('KISII');
-        $response->assertSee('News Network');
+        $response->assertSee("Amandegere Y'Omogusii");
         $response->assertSee('Breaking News');
         $response->assertSee('Latest News Wire');
         $response->assertSee('Trending / Most Read');

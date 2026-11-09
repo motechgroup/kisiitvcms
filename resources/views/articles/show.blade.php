@@ -236,7 +236,7 @@
                 <div>
                     <h4 class="font-bold text-slate-900 text-sm font-headline">About {{ $article->author->name ?? 'Staff Correspondent' }}</h4>
                     <p class="text-xs text-slate-600 mt-1 leading-relaxed">
-                        {{ $article->author->bio ?? 'Senior journalist reporting on political economy, grassroots devolution, and institutional accountability for Kisiitv News Network.' }}
+                        {{ $article->author->bio ?? 'Senior journalist reporting on political economy, grassroots devolution, and institutional accountability for Kisii TV.' }}
                     </p>
                 </div>
             </div>

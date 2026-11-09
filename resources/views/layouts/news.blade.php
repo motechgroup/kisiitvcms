@@ -265,12 +265,9 @@
             <!-- Brand Logo from Dynamic Settings -->
             <div class="flex items-center justify-between w-full md:w-auto">
                 <a href="{{ route('home') }}" class="group flex items-center space-x-3">
-                    <img src="{{ \App\Models\SiteSetting::get('site_logo') ?: asset('images/kisii-tv-logo.png') }}" alt="{{ \App\Models\SiteSetting::get('site_name', 'Kisiitv News') }}" class="h-14 sm:h-16 w-auto object-contain drop-shadow">
+                    <img src="{{ \App\Models\SiteSetting::get('site_logo') ?: asset('images/kisii-tv-logo.png') }}" alt="{{ \App\Models\SiteSetting::get('site_name', 'Kisii TV') }}" class="h-14 sm:h-16 w-auto object-contain drop-shadow">
                     <div class="flex flex-col">
-                        <div class="flex items-baseline space-x-2">
-                            <span class="text-2xl sm:text-3xl font-black font-headline tracking-tight text-[#0a1c3d]">KISII<span class="text-[#d9252a]">TV</span></span>
-                            <span class="text-[10px] sm:text-xs font-black tracking-widest text-[#1b52bc] uppercase hidden sm:inline">News Network</span>
-                        </div>
+                        <span class="text-2xl sm:text-3xl font-black font-headline tracking-tight text-[#0a1c3d]">KISII<span class="text-[#d9252a]">TV</span></span>
                         <span class="text-[11px] sm:text-xs font-semibold text-[#1b52bc] tracking-wide">{{ \App\Models\SiteSetting::get('site_tagline', "Amandegere Y'Omogusii") }}</span>
                     </div>
                 </a>

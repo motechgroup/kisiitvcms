@@ -51,15 +51,9 @@
     <text x="0" y="34" font-family="'Playfair Display', Georgia, serif" font-size="34" font-weight="900" fill="#0b1a3d" letter-spacing="-0.5">
       KISII<tspan fill="#d9252a">TV</tspan>
     </text>
-    <text x="142" y="34" font-family="'Instrument Sans', Arial, sans-serif" font-size="13" font-weight="800" fill="#1b52bc" letter-spacing="2">
-      NEWS NETWORK
-    </text>
     <!-- Official Slogan from Logo in Gusii language -->
     <text x="2" y="58" font-family="'Instrument Sans', Arial, sans-serif" font-size="13" font-weight="600" fill="#1b52bc" letter-spacing="0.5">
       Amandegere Y'Omogusii
-    </text>
-    <text x="160" y="58" font-family="'Instrument Sans', Arial, sans-serif" font-size="11" font-weight="500" fill="#64748b" letter-spacing="0.5">
-      • Independent Digital Newsroom
     </text>
   </g>
 </svg>
