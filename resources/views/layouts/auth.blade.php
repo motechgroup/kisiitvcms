@@ -18,9 +18,12 @@
     <header class="bg-[#0b162c] text-white border-b-4 border-[#d9252a]">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
             <div class="flex items-center space-x-3">
-                <a href="{{ route('home') }}" class="flex items-center space-x-2 text-white hover:opacity-90 transition">
-                    <span class="bg-[#d9252a] text-white font-extrabold text-sm uppercase px-2 py-0.5 tracking-wider">Newsroom</span>
-                    <span class="font-bold text-xl tracking-tight uppercase" style="font-family: 'Playfair Display', serif;">Kisiitv</span>
+                <a href="{{ route('home') }}" class="flex items-center space-x-3 text-white hover:opacity-90 transition">
+                    <img src="{{ asset('images/kisii-tv-logo.png') }}" alt="Kisii TV" class="h-10 w-auto object-contain">
+                    <div class="flex flex-col">
+                        <span class="font-bold text-lg leading-tight uppercase font-headline text-white">Kisii TV</span>
+                        <span class="text-[10px] text-blue-300 font-semibold tracking-wide">Amandegere Y'Omogusii</span>
+                    </div>
                 </a>
             </div>
             <div class="text-xs text-slate-300 hidden sm:flex items-center space-x-4">
