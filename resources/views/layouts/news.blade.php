@@ -37,6 +37,15 @@
     <meta name="twitter:description" content="{{ $ogDescription ?? ($metaDescription ?? \App\Models\SiteSetting::get('site_description')) }}">
     <meta name="twitter:image" content="{{ $ogImage ?? (\App\Models\SiteSetting::get('site_logo') ?: asset('images/kisii-tv-logo.png')) }}">
 
+    <!-- Favicon & Mobile Touch Icons -->
+    <link rel="icon" type="image/x-icon" href="{{ asset('favicon.ico') }}">
+    <link rel="shortcut icon" href="{{ asset('favicon.ico') }}">
+    <link rel="icon" type="image/png" sizes="32x32" href="{{ \App\Models\SiteSetting::get('site_favicon') ?: asset('favicon-32x32.png') }}">
+    <link rel="icon" type="image/png" sizes="16x16" href="{{ \App\Models\SiteSetting::get('site_favicon') ?: asset('favicon-16x16.png') }}">
+    <link rel="apple-touch-icon" sizes="180x180" href="{{ \App\Models\SiteSetting::get('site_favicon') ?: asset('apple-touch-icon.png') }}">
+    <link rel="manifest" href="{{ asset('site.webmanifest') }}">
+    <meta name="theme-color" content="#0b162c">
+
     <!-- News RSS Syndication Auto-Discovery -->
     <link rel="alternate" type="application/rss+xml" title="{{ \App\Models\SiteSetting::get('site_name', 'Kisii TV') }} RSS Feed" href="{{ route('seo.rss') }}">
     <link rel="sitemap" type="application/xml" title="Sitemap" href="{{ route('seo.sitemap') }}">

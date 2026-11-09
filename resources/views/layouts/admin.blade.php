@@ -7,6 +7,15 @@
 
     <title>@yield('title', 'Newsroom Management System') - Kisii TV</title>
 
+    <!-- Favicon & Mobile Touch Icons -->
+    <link rel="icon" type="image/x-icon" href="{{ asset('favicon.ico') }}">
+    <link rel="shortcut icon" href="{{ asset('favicon.ico') }}">
+    <link rel="icon" type="image/png" sizes="32x32" href="{{ \App\Models\SiteSetting::get('site_favicon') ?: asset('favicon-32x32.png') }}">
+    <link rel="icon" type="image/png" sizes="16x16" href="{{ \App\Models\SiteSetting::get('site_favicon') ?: asset('favicon-16x16.png') }}">
+    <link rel="apple-touch-icon" sizes="180x180" href="{{ \App\Models\SiteSetting::get('site_favicon') ?: asset('apple-touch-icon.png') }}">
+    <link rel="manifest" href="{{ asset('site.webmanifest') }}">
+    <meta name="theme-color" content="#0a1c3d">
+
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.bunny.net">
     <link href="https://fonts.bunny.net/css?family=instrument-sans:400,500,600,700,800|playfair-display:700,800,900&display=swap" rel="stylesheet" />
