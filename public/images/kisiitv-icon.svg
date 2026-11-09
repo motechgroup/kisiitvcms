@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
+  <defs>
+    <linearGradient id="blueRing" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2a6ce6" />
+      <stop offset="50%" stop-color="#1b52bc" />
+      <stop offset="100%" stop-color="#0f3d99" />
+    </linearGradient>
+    <linearGradient id="redK" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f0333b" />
+      <stop offset="40%" stop-color="#d9252a" />
+      <stop offset="100%" stop-color="#a81216" />
+    </linearGradient>
+    <linearGradient id="badgeBlue" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#1b52bc" />
+      <stop offset="100%" stop-color="#124099" />
+    </linearGradient>
+  </defs>
+
+  <circle cx="60" cy="60" r="56" fill="none" stroke="#d9252a" stroke-width="3" />
+  <circle cx="60" cy="60" r="52" fill="none" stroke="#ffffff" stroke-width="4" />
+  <circle cx="60" cy="60" r="46" fill="none" stroke="url(#blueRing)" stroke-width="12" />
+
+  <!-- Stylized K -->
+  <path d="M 38 30 L 49 30 L 49 40 L 45 42 L 45 78 L 49 80 L 49 90 L 38 90 L 38 80 L 42 78 L 42 42 L 38 40 Z" fill="url(#redK)" />
+  <path d="M 45 57 C 52 50, 64 40, 82 20 C 78 36, 72 49, 56 64 L 80 90 L 67 90 L 50 70 L 45 75 Z" fill="url(#redK)" />
+  <path d="M 54 66 L 77 90 L 86 90 L 61 62 Z" fill="url(#redK)" opacity="0.9" />
+
+  <!-- Kisii TV Pill -->
+  <rect x="52" y="46" width="62" height="24" rx="6" ry="6" fill="url(#badgeBlue)" stroke="#ffffff" stroke-width="1.5" />
+  <text x="83" y="62" font-family="'Instrument Sans', Arial, sans-serif" font-size="11" font-weight="900" fill="#ffffff" text-anchor="middle" letter-spacing="0.5">KISII TV</text>
+</svg>
