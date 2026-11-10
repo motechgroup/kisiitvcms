@@ -1,0 +1,16 @@
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Block public access to sensitive files and directories
+    <FilesMatch "^\.(env|git|htaccess)">
+        Order allow,deny
+        Deny from all
+    </FilesMatch>
+
+    # Allow direct execution of deploy.php
+    RewriteRule ^deploy\.php$ - [L]
+
+    # Rewrite all other requests to the public folder
+    RewriteCond %{REQUEST_URI} !^/public/
+    RewriteRule ^(.*)$ public/$1 [L]
+</IfModule>
