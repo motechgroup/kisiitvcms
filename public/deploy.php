@@ -227,6 +227,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login_secret'])) {
 
 $isAuthenticated = ! empty($_SESSION['deployer_authenticated']);
 
+// Direct GET execution triggers with key
+if ((isset($_GET['key']) && hash_equals($configuredSecret, (string) $_GET['key'])) || $isAuthenticated) {
+    if (isset($_GET['run']) && $_GET['run'] === 'seed') {
+        header('Content-Type: text/html; charset=UTF-8');
+        echo '<!DOCTYPE html><html><head><title>Database Seeder</title><style>body{background:#030712;color:#f3f4f6;font-family:monospace;padding:30px;line-height:1.6;}pre{background:#0f172a;padding:20px;border-radius:12px;border:1px solid #1e293b;color:#38bdf8;white-space:pre-wrap;}</style></head><body>';
+        echo '<h2>🌱 Running Database Seeder (db:seed --force)...</h2>';
+        $res = ArtisanRunner::call('db:seed', ['--force' => true]);
+        echo '<pre>'.htmlspecialchars($res['output'] ?: $res['error']).'</pre>';
+        ArtisanRunner::call('optimize:clear');
+        echo "<h3 style='color:#10b981;'>✅ Seeding completed!</h3>";
+        echo "<p><a href='/' style='color:#38bdf8;text-decoration:none;'>&larr; View Live Website</a> | <a href='deploy.php' style='color:#38bdf8;text-decoration:none;'>Open Deployer Dashboard</a></p>";
+        echo '</body></html>';
+        exit;
+    }
+}
+
 // 7. Core Process & Execution Helpers
 class ProcessRunner
 {
@@ -613,6 +629,13 @@ if ($isAuthenticated && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['a
         case 'migrate':
             $res = ArtisanRunner::call('migrate', ['--force' => true]);
             DeploymentHistory::log('Database Migrate', $res['success'] ? 'success' : 'failed', $res['output'] ?: $res['error'], $res['duration']);
+            echo json_encode($res);
+            exit;
+
+        case 'db_seed':
+            $res = ArtisanRunner::call('db:seed', ['--force' => true]);
+            ArtisanRunner::call('optimize:clear');
+            DeploymentHistory::log('Database Seed (db:seed)', $res['success'] ? 'success' : 'failed', $res['output'] ?: $res['error'], $res['duration']);
             echo json_encode($res);
             exit;
 
@@ -1372,6 +1395,23 @@ if ($isAuthenticated && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['a
                     </button>
                 </div>
 
+                <!-- Seed Database Content -->
+                <div class="bg-slate-900/70 border border-slate-800 rounded-xl p-4 flex flex-col justify-between hover:border-slate-700 transition">
+                    <div>
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-xs font-semibold text-white flex items-center space-x-1.5">
+                                <span>🌱</span>
+                                <span>Seed Content</span>
+                            </span>
+                            <span class="text-[10px] text-emerald-400 mono">db:seed</span>
+                        </div>
+                        <p class="text-[11px] text-slate-400 mb-4">Populates news articles, editorial categories, site settings, and admin users.</p>
+                    </div>
+                    <button onclick="runAction('db_seed')" class="w-full py-2 bg-emerald-950/80 hover:bg-emerald-900/80 text-emerald-300 border border-emerald-800/80 text-xs font-medium rounded-lg transition">
+                        🌱 Seed Content Now
+                    </button>
+                </div>
+
                 <!-- Clear Caches -->
                 <div class="bg-slate-900/70 border border-slate-800 rounded-xl p-4 flex flex-col justify-between hover:border-slate-700 transition">
                     <div>
@@ -1518,8 +1558,11 @@ if ($isAuthenticated && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['a
                     <button onclick="runAction('migrate_status')" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-medium transition">
                         View Migration Status
                     </button>
-                    <button onclick="runAction('migrate')" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-medium transition">
+                    <button onclick="runAction('migrate')" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-medium transition">
                         Run Migrations (--force)
+                    </button>
+                    <button onclick="runAction('db_seed')" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-medium transition">
+                        🌱 Seed Database Content
                     </button>
                 </div>
             </div>

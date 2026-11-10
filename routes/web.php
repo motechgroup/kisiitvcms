@@ -11,6 +11,8 @@ use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\PublicCategoryController;
 use App\Http\Controllers\SeoController;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Route;
 
 // Public Editorial Homepage
@@ -101,4 +103,19 @@ Route::any('/deploy', function () {
         require_once base_path('deploy.php');
     }
     exit;
+});
+
+Route::get('/seed-database', function (Request $request) {
+    if ($request->query('key') !== env('DEPLOY_SECRET', 'deployer_admin_secret_key_2026')) {
+        abort(403, 'Unauthorized. Please provide valid ?key= parameter.');
+    }
+    Artisan::call('migrate', ['--force' => true]);
+    $migrateOutput = Artisan::output();
+
+    Artisan::call('db:seed', ['--force' => true]);
+    $seedOutput = Artisan::output();
+
+    Artisan::call('optimize:clear');
+
+    return response("<pre style='background:#030712;color:#34d399;padding:25px;font-family:monospace;border-radius:12px;border:1px solid #1e293b;line-height:1.6;'>===========================================\n🌱 DATABASE MIGRATIONS & SEEDING COMPLETED\n===========================================\n\n[MIGRATIONS OUTPUT]\n{$migrateOutput}\n\n[SEEDING OUTPUT]\n{$seedOutput}\n\n<a href='/' style='color:#38bdf8;text-decoration:none;font-weight:bold;'>&larr; View Live Site (kisiitv.co.ke)</a></pre>");
 });
