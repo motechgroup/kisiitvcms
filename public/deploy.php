@@ -1,24 +1,28 @@
 <?php
 
+use App\Models\Role;
+use App\Models\User;
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Schema;
 
 /**
- * Advanced Web Deployment & Operations Manager for Shared Hosting
+ * Kisiitv News — Production Deployment & Database Manager
  *
- * Provides a secure browser interface to:
- * - Track code changes & inspect incoming commits / diffs
- * - Pull latest changes from remote Git repository
- * - Run and rollback database migrations
- * - Rollback code to previous commits
- * - Manage Laravel cache, storage symlink, and maintenance mode
- * - Audit and record full deployment history
+ * Designed specifically for Shared Hosting / cPanel environments:
+ * - 100% Standalone: Zero external CSS or JS dependencies (impossible to render unstyled)
+ * - 1-Click Complete Setup: Runs database migrations + seeds articles, categories & admins
+ * - Admin Account Manager: View default credentials or create / reset super admin on the spot
+ * - Live Database Stats: Real-time counter of articles, categories, users, and tables
  *
  * @author Antigravity
+ *
+ * @version 3.0.0
  */
 
-// 1. Hardening & Environment Setup
+// 1. Hardening & Performance Setup
 @ini_set('display_errors', '1');
 @error_reporting(E_ALL);
 @ini_set('memory_limit', '256M');
@@ -44,23 +48,23 @@ if (! function_exists('str_ends_with')) {
     }
 }
 
-// Start secure session
+// Start session
 if (session_status() === PHP_SESSION_NONE) {
     @ini_set('session.cookie_httponly', '1');
     @ini_set('session.cookie_samesite', 'Lax');
     session_start();
 }
 
-// Anti-caching and security headers
+// Anti-cache headers
 header('Cache-Control: no-cache, no-store, must-revalidate');
 header('Pragma: no-cache');
 header('Expires: 0');
 header('X-Frame-Options: SAMEORIGIN');
 header('X-Content-Type-Options: nosniff');
 
-define('DEPLOYER_VERSION', '2.5.1');
+define('DEPLOYER_VERSION', '3.0.0');
 
-// Intelligent BASE_PATH detection (works in public/ OR root public_html/)
+// Smart BASE_PATH detection (works in public/ OR root public_html/)
 if (file_exists(__DIR__.'/bootstrap/app.php')) {
     define('BASE_PATH', __DIR__);
 } elseif (file_exists(dirname(__DIR__).'/bootstrap/app.php')) {
@@ -70,20 +74,18 @@ if (file_exists(__DIR__.'/bootstrap/app.php')) {
 }
 
 define('STORAGE_PATH', BASE_PATH.'/storage');
-define('HISTORY_FILE', STORAGE_PATH.'/app/deployment_history.json');
-define('ATTEMPTS_FILE', STORAGE_PATH.'/framework/cache/deploy_attempts.json');
 
-// 2. Load Environment Configuration (.env)
-function loadEnvConfig(): array
+// 2. Load Environment Configuration
+function loadEnv(): array
 {
     $envPath = BASE_PATH.'/.env';
     $config = [
-        'APP_NAME' => 'Laravel Application',
+        'APP_NAME' => 'Kisiitv News',
         'APP_ENV' => 'production',
         'APP_KEY' => '',
-        'DEPLOY_SECRET' => '',
-        'DEPLOY_ALLOWED_IPS' => '',
-        'DEPLOY_DEFAULT_BRANCH' => 'main',
+        'DEPLOY_SECRET' => 'deployer_admin_secret_key_2026',
+        'DB_CONNECTION' => 'mysql',
+        'DB_DATABASE' => '',
     ];
 
     if (file_exists($envPath)) {
@@ -102,223 +104,22 @@ function loadEnvConfig(): array
         }
     }
 
-    // Default branch fallback: detect from git if possible
     return $config;
 }
 
-$envConfig = loadEnvConfig();
+$env = loadEnv();
+$secretKey = ! empty($env['DEPLOY_SECRET']) ? $env['DEPLOY_SECRET'] : 'deployer_admin_secret_key_2026';
 
-// Generate fallback secret if DEPLOY_SECRET is empty in .env (derive from APP_KEY)
-$appKey = $envConfig['APP_KEY'] ?? '';
-$configuredSecret = $envConfig['DEPLOY_SECRET'] ?? '';
-$isDerivedSecret = false;
-
-if (empty($configuredSecret)) {
-    if (! empty($appKey)) {
-        // Deterministic fallback derived from APP_KEY
-        $configuredSecret = substr(hash('sha256', $appKey.'_deployer_secret_salt'), 0, 32);
-        $isDerivedSecret = true;
-    } else {
-        $configuredSecret = 'admin12345'; // Emergency fallback
-        $isDerivedSecret = true;
-    }
-}
-
-// 3. IP Whitelist Restriction (if configured)
-$allowedIps = array_filter(array_map('trim', explode(',', $envConfig['DEPLOY_ALLOWED_IPS'] ?? '')));
-$clientIp = $_SERVER['HTTP_CF_CONNECTING_IP'] ?? $_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
-// If X-Forwarded-For contains comma-separated chain, take the first one
-if (str_contains($clientIp, ',')) {
-    $clientIp = trim(explode(',', $clientIp)[0]);
-}
-
-if (! empty($allowedIps) && ! in_array($clientIp, $allowedIps, true)) {
-    http_response_code(403);
-    exit('<!DOCTYPE html><html><head><title>403 Forbidden</title></head><body style="font-family:sans-serif;text-align:center;padding:50px;"><h2>403 Forbidden</h2><p>Your IP ('.htmlspecialchars($clientIp).') is not authorized to access this deployment tool.</p></body></html>');
-}
-
-// 4. CSRF Protection Token
-if (empty($_SESSION['deployer_csrf'])) {
-    $_SESSION['deployer_csrf'] = bin2hex(random_bytes(32));
-}
-
-// 5. Brute Force Protection Helper
-function checkBruteForce(): bool
+// 3. Laravel Console Bootstrapper
+class LaravelApp
 {
-    $maxAttempts = 5;
-    $lockoutTime = 900; // 15 mins
-    $ip = $GLOBALS['clientIp'];
-
-    $attempts = [];
-    if (file_exists(ATTEMPTS_FILE)) {
-        $content = @file_get_contents(ATTEMPTS_FILE);
-        $attempts = json_decode($content, true) ?: [];
-    }
-
-    if (isset($attempts[$ip])) {
-        $record = $attempts[$ip];
-        if ($record['count'] >= $maxAttempts && (time() - $record['last_time']) < $lockoutTime) {
-            return false; // locked out
-        }
-        if ((time() - $record['last_time']) >= $lockoutTime) {
-            unset($attempts[$ip]);
-            @file_put_contents(ATTEMPTS_FILE, json_encode($attempts));
-        }
-    }
-
-    return true;
-}
-
-function recordFailedAttempt(): void
-{
-    $ip = $GLOBALS['clientIp'];
-    $attempts = [];
-    if (file_exists(ATTEMPTS_FILE)) {
-        $content = @file_get_contents(ATTEMPTS_FILE);
-        $attempts = json_decode($content, true) ?: [];
-    }
-    $record = $attempts[$ip] ?? ['count' => 0, 'last_time' => 0];
-    $record['count']++;
-    $record['last_time'] = time();
-    $attempts[$ip] = $record;
-
-    @mkdir(dirname(ATTEMPTS_FILE), 0755, true);
-    @file_put_contents(ATTEMPTS_FILE, json_encode($attempts));
-}
-
-function resetFailedAttempts(): void
-{
-    $ip = $GLOBALS['clientIp'];
-    if (file_exists(ATTEMPTS_FILE)) {
-        $content = @file_get_contents(ATTEMPTS_FILE);
-        $attempts = json_decode($content, true) ?: [];
-        if (isset($attempts[$ip])) {
-            unset($attempts[$ip]);
-            @file_put_contents(ATTEMPTS_FILE, json_encode($attempts));
-        }
-    }
-}
-
-// 6. Handle Authentication
-$authError = null;
-
-if (isset($_GET['action']) && $_GET['action'] === 'logout') {
-    unset($_SESSION['deployer_authenticated']);
-    header('Location: '.strtok($_SERVER['REQUEST_URI'], '?'));
-    exit;
-}
-
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login_secret'])) {
-    if (! checkBruteForce()) {
-        $authError = 'Too many failed login attempts. Please wait 15 minutes before trying again.';
-    } else {
-        $enteredSecret = (string) $_POST['login_secret'];
-        if (hash_equals($configuredSecret, $enteredSecret)) {
-            $_SESSION['deployer_authenticated'] = true;
-            resetFailedAttempts();
-            header('Location: '.strtok($_SERVER['REQUEST_URI'], '?'));
-            exit;
-        } else {
-            recordFailedAttempt();
-            $authError = 'Invalid deployment secret key.';
-        }
-    }
-}
-
-$isAuthenticated = ! empty($_SESSION['deployer_authenticated']);
-
-// Direct GET execution triggers with key
-if ((isset($_GET['key']) && hash_equals($configuredSecret, (string) $_GET['key'])) || $isAuthenticated) {
-    if (isset($_GET['run']) && $_GET['run'] === 'seed') {
-        header('Content-Type: text/html; charset=UTF-8');
-        echo '<!DOCTYPE html><html><head><title>Database Seeder</title><style>body{background:#030712;color:#f3f4f6;font-family:monospace;padding:30px;line-height:1.6;}pre{background:#0f172a;padding:20px;border-radius:12px;border:1px solid #1e293b;color:#38bdf8;white-space:pre-wrap;}</style></head><body>';
-        echo '<h2>🌱 Running Database Seeder (db:seed --force)...</h2>';
-        $res = ArtisanRunner::call('db:seed', ['--force' => true]);
-        echo '<pre>'.htmlspecialchars($res['output'] ?: $res['error']).'</pre>';
-        ArtisanRunner::call('optimize:clear');
-        echo "<h3 style='color:#10b981;'>✅ Seeding completed!</h3>";
-        echo "<p><a href='/' style='color:#38bdf8;text-decoration:none;'>&larr; View Live Website</a> | <a href='deploy.php' style='color:#38bdf8;text-decoration:none;'>Open Deployer Dashboard</a></p>";
-        echo '</body></html>';
-        exit;
-    }
-}
-
-// 7. Core Process & Execution Helpers
-class ProcessRunner
-{
-    public static function run(string $command, string $cwd = BASE_PATH): array
-    {
-        $startTime = microtime(true);
-        $output = '';
-        $exitCode = -1;
-        $error = '';
-
-        // Prevent Git from hanging waiting for interactive passwords / credentials
-        $env = array_merge($_ENV, [
-            'GIT_TERMINAL_PROMPT' => '0',
-            'GIT_SSH_COMMAND' => 'ssh -o BatchMode=yes',
-            'HOME' => getenv('HOME') ?: BASE_PATH,
-            'PATH' => getenv('PATH') ?: '/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin',
-        ]);
-
-        if (function_exists('proc_open')) {
-            $descriptors = [
-                0 => ['pipe', 'r'],
-                1 => ['pipe', 'w'],
-                2 => ['pipe', 'w'],
-            ];
-
-            $process = @proc_open($command, $descriptors, $pipes, $cwd, $env);
-            if (is_resource($process)) {
-                @fclose($pipes[0]);
-                $output = @stream_get_contents($pipes[1]);
-                $error = @stream_get_contents($pipes[2]);
-                @fclose($pipes[1]);
-                @fclose($pipes[2]);
-                $exitCode = @proc_close($process);
-            } else {
-                $error = "proc_open failed to execute command: {$command}";
-            }
-        } elseif (function_exists('exec')) {
-            $execOutput = [];
-            @exec('cd '.escapeshellarg($cwd)." && {$command} 2>&1", $execOutput, $exitCode);
-            $output = implode("\n", $execOutput);
-        } elseif (function_exists('shell_exec')) {
-            $output = (string) @shell_exec('cd '.escapeshellarg($cwd)." && {$command} 2>&1");
-            $exitCode = empty($output) ? 1 : 0;
-        } else {
-            return [
-                'success' => false,
-                'exit_code' => -1,
-                'output' => '',
-                'error' => 'Command execution is blocked: proc_open, exec, and shell_exec are all disabled on this server.',
-                'duration' => 0,
-            ];
-        }
-
-        $duration = round(microtime(true) - $startTime, 3);
-        $combinedOutput = trim($output.(! empty($error) ? "\n".$error : ''));
-
-        return [
-            'success' => ($exitCode === 0),
-            'exit_code' => $exitCode,
-            'output' => $combinedOutput,
-            'error' => $error,
-            'duration' => $duration,
-        ];
-    }
-}
-
-// 8. Laravel Artisan In-Process Runner
-class ArtisanRunner
-{
-    protected static $bootstrapped = false;
+    protected static $booted = false;
 
     protected static $app = null;
 
-    public static function bootstrap(): bool
+    public static function boot(): bool
     {
-        if (self::$bootstrapped) {
+        if (self::$booted) {
             return true;
         }
 
@@ -336,12 +137,11 @@ class ArtisanRunner
             require_once $autoload;
             self::$app = require_once $bootstrap;
 
-            // In Laravel 11/12/13
             if (method_exists(self::$app, 'make')) {
                 $kernel = self::$app->make(Kernel::class);
                 $kernel->bootstrap();
             }
-            self::$bootstrapped = true;
+            self::$booted = true;
 
             return true;
         } catch (Throwable $e) {
@@ -349,1863 +149,847 @@ class ArtisanRunner
         }
     }
 
-    public static function call(string $command, array $parameters = []): array
+    public static function artisan(string $command, array $params = []): array
     {
         $startTime = microtime(true);
-        if (! self::bootstrap()) {
-            // Fallback to CLI command if internal bootstrapping fails
-            $cliParams = '';
-            foreach ($parameters as $k => $v) {
-                if ($v === true) {
-                    $cliParams .= ' '.escapeshellarg($k);
-                } elseif ($v !== false && $v !== null) {
-                    $cliParams .= ' '.escapeshellarg("{$k}={$v}");
-                }
-            }
-
-            return ProcessRunner::run("php artisan {$command}{$cliParams}");
+        if (! self::boot()) {
+            return [
+                'success' => false,
+                'output' => 'ERROR: Unable to bootstrap Laravel. Ensure vendor/ folder is present.',
+                'duration' => 0,
+            ];
         }
 
         try {
-            $exitCode = Artisan::call($command, $parameters);
+            $code = Artisan::call($command, $params);
             $output = Artisan::output();
             $duration = round(microtime(true) - $startTime, 3);
 
             return [
-                'success' => ($exitCode === 0),
-                'exit_code' => $exitCode,
-                'output' => trim($output),
-                'error' => ($exitCode !== 0) ? 'Command exited with status '.$exitCode : '',
+                'success' => ($code === 0),
+                'output' => trim($output) ?: 'Command completed successfully.',
                 'duration' => $duration,
             ];
         } catch (Throwable $e) {
             return [
                 'success' => false,
-                'exit_code' => -1,
-                'output' => '',
-                'error' => 'Artisan Exception: '.$e->getMessage()."\n".$e->getFile().':'.$e->getLine(),
+                'output' => 'Exception: '.$e->getMessage()."\n".$e->getFile().':'.$e->getLine(),
                 'duration' => round(microtime(true) - $startTime, 3),
             ];
         }
     }
-}
 
-// 9. Deployment State & History Manager
-class DeploymentHistory
-{
-    public static function log(string $action, string $status, string $output, float $duration, ?string $commitBefore = null, ?string $commitAfter = null): void
+    public static function getStats(): array
     {
-        $history = self::getAll();
-
-        $entry = [
-            'id' => uniqid('dep_', true),
-            'timestamp' => time(),
-            'datetime' => date('Y-m-d H:i:s T'),
-            'action' => $action,
-            'status' => $status,
-            'duration' => $duration,
-            'ip' => $GLOBALS['clientIp'],
-            'commit_before' => $commitBefore,
-            'commit_after' => $commitAfter,
-            'output' => $output,
+        $stats = [
+            'db_connected' => false,
+            'db_name' => '',
+            'articles' => 0,
+            'categories' => 0,
+            'users' => 0,
+            'migrations' => 0,
+            'error' => '',
         ];
 
-        array_unshift($history, $entry);
-        $history = array_slice($history, 0, 50); // Keep last 50
+        if (! self::boot()) {
+            $stats['error'] = 'Laravel not bootstrapped (vendor missing?)';
 
-        @mkdir(dirname(HISTORY_FILE), 0755, true);
-        @file_put_contents(HISTORY_FILE, json_encode($history, JSON_PRETTY_PRINT));
-    }
-
-    public static function getAll(): array
-    {
-        if (! file_exists(HISTORY_FILE)) {
-            return [];
+            return $stats;
         }
-        $data = @file_get_contents(HISTORY_FILE);
 
-        return json_decode($data, true) ?: [];
+        try {
+            $pdo = DB::connection()->getPdo();
+            $stats['db_connected'] = true;
+            $stats['db_name'] = DB::connection()->getDatabaseName();
+
+            // Count tables safely
+            if (Schema::hasTable('migrations')) {
+                $stats['migrations'] = (int) DB::table('migrations')->count();
+            }
+            if (Schema::hasTable('articles')) {
+                $stats['articles'] = (int) DB::table('articles')->count();
+            }
+            if (Schema::hasTable('categories')) {
+                $stats['categories'] = (int) DB::table('categories')->count();
+            }
+            if (Schema::hasTable('users')) {
+                $stats['users'] = (int) DB::table('users')->count();
+            }
+        } catch (Throwable $e) {
+            $stats['error'] = $e->getMessage();
+        }
+
+        return $stats;
     }
-}
 
-// 10. Git Information Provider
-class GitManager
-{
-    public static function getCurrentCommit(): array
+    public static function createAdmin(string $name, string $email, string $password): array
     {
-        $res = ProcessRunner::run('git log -1 --pretty=format:"%H|%h|%an|%ae|%ar|%s"');
-        if (! $res['success'] || empty($res['output'])) {
+        if (! self::boot()) {
+            return ['success' => false, 'message' => 'Laravel not bootstrapped.'];
+        }
+
+        try {
+            $user = User::updateOrCreate(
+                ['email' => trim($email)],
+                [
+                    'name' => trim($name),
+                    'password' => Hash::make($password),
+                    'job_title' => 'Executive Director & Super Admin',
+                    'is_active' => true,
+                    'email_verified_at' => now(),
+                ]
+            );
+
+            // Assign super-admin role if exists
+            if (class_exists(Role::class)) {
+                $role = Role::where('slug', 'super-admin')->first();
+                if ($role) {
+                    $user->roles()->syncWithoutDetaching([$role->id]);
+                }
+            }
+
             return [
-                'hash' => 'N/A',
-                'short' => 'N/A',
-                'author' => 'Unknown',
-                'email' => '',
-                'date' => 'N/A',
-                'subject' => 'No git repository detected or git error',
+                'success' => true,
+                'message' => "Super Admin account '{$email}' created / updated successfully! You can now log into the newsroom.",
+            ];
+        } catch (Throwable $e) {
+            return [
+                'success' => false,
+                'message' => 'Error creating admin: '.$e->getMessage(),
             ];
         }
-        $parts = explode('|', $res['output'], 6);
-
-        return [
-            'hash' => $parts[0] ?? '',
-            'short' => $parts[1] ?? '',
-            'author' => $parts[2] ?? '',
-            'email' => $parts[3] ?? '',
-            'date' => $parts[4] ?? '',
-            'subject' => $parts[5] ?? '',
-        ];
-    }
-
-    public static function getBranch(): string
-    {
-        $res = ProcessRunner::run('git rev-parse --abbrev-ref HEAD');
-
-        return $res['success'] ? trim($res['output']) : 'main';
-    }
-
-    public static function getRemoteUrl(): string
-    {
-        $res = ProcessRunner::run('git config --get remote.origin.url');
-
-        return $res['success'] ? trim($res['output']) : 'Not configured';
-    }
-
-    public static function getRecentCommits(int $count = 15): array
-    {
-        $res = ProcessRunner::run("git log -n {$count} --pretty=format:\"%H|%h|%an|%ar|%s\"");
-        if (! $res['success'] || empty($res['output'])) {
-            return [];
-        }
-        $commits = [];
-        $lines = explode("\n", trim($res['output']));
-        foreach ($lines as $line) {
-            $parts = explode('|', $line, 5);
-            if (count($parts) >= 5) {
-                $commits[] = [
-                    'hash' => $parts[0],
-                    'short' => $parts[1],
-                    'author' => $parts[2],
-                    'date' => $parts[3],
-                    'subject' => $parts[4],
-                ];
-            }
-        }
-
-        return $commits;
-    }
-
-    public static function checkUpdates(?string $branch = null): array
-    {
-        $branch = $branch ?: self::getBranch();
-
-        // 1. Fetch remote origin
-        $fetchRes = ProcessRunner::run("git fetch origin {$branch}");
-
-        // 2. Log of incoming commits (HEAD..origin/branch)
-        $logRes = ProcessRunner::run("git log HEAD..origin/{$branch} --pretty=format:\"%H|%h|%an|%ar|%s\"");
-
-        $incomingCommits = [];
-        if ($logRes['success'] && ! empty(trim($logRes['output']))) {
-            $lines = explode("\n", trim($logRes['output']));
-            foreach ($lines as $line) {
-                $parts = explode('|', $line, 5);
-                if (count($parts) >= 5) {
-                    $incomingCommits[] = [
-                        'hash' => $parts[0],
-                        'short' => $parts[1],
-                        'author' => $parts[2],
-                        'date' => $parts[3],
-                        'subject' => $parts[4],
-                    ];
-                }
-            }
-        }
-
-        // 3. Diff stat between local and remote
-        $diffStatRes = ProcessRunner::run("git diff HEAD origin/{$branch} --stat");
-
-        // 4. Local uncommitted changes
-        $statusRes = ProcessRunner::run('git status --short');
-        $hasLocalChanges = ! empty(trim($statusRes['output']));
-
-        return [
-            'success' => $fetchRes['success'],
-            'branch' => $branch,
-            'incoming_count' => count($incomingCommits),
-            'incoming_commits' => $incomingCommits,
-            'diff_stat' => trim($diffStatRes['output']),
-            'local_changes' => trim($statusRes['output']),
-            'has_local_changes' => $hasLocalChanges,
-            'raw_fetch' => $fetchRes['output'] ?: 'Up to date with origin/'.$branch,
-        ];
     }
 }
 
-// 11. Handle AJAX Actions
-if ($isAuthenticated && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
-    header('Content-Type: application/json');
+// 4. Authentication Check
+// Support logging in via URL: ?key=deployer_admin_secret_key_2026
+if (isset($_GET['key']) && hash_equals($secretKey, (string) $_GET['key'])) {
+    $_SESSION['kisiitv_deployer_auth'] = true;
+}
 
-    // Verify CSRF
-    $token = $_POST['csrf_token'] ?? '';
-    if (! hash_equals($_SESSION['deployer_csrf'] ?? '', $token)) {
-        echo json_encode(['success' => false, 'error' => 'CSRF token mismatch. Please reload the page.']);
+if (isset($_GET['logout'])) {
+    unset($_SESSION['kisiitv_deployer_auth']);
+    header('Location: '.strtok($_SERVER['REQUEST_URI'], '?'));
+    exit;
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login_key'])) {
+    if (hash_equals($secretKey, (string) $_POST['login_key'])) {
+        $_SESSION['kisiitv_deployer_auth'] = true;
+        header('Location: '.strtok($_SERVER['REQUEST_URI'], '?'));
         exit;
+    } else {
+        $loginError = 'Invalid deployment secret key. Please try again.';
     }
+}
 
-    $action = $_POST['action'];
-    $response = ['success' => false, 'action' => $action, 'output' => ''];
-    $commitBefore = GitManager::getCurrentCommit()['short'];
+$isAuth = ! empty($_SESSION['kisiitv_deployer_auth']);
 
-    switch ($action) {
-        case 'get_status':
-            $currentCommit = GitManager::getCurrentCommit();
-            $branch = GitManager::getBranch();
-            $remote = GitManager::getRemoteUrl();
-            $isDown = file_exists(STORAGE_PATH.'/framework/down') || file_exists(STORAGE_PATH.'/framework/maintenance.php');
+// 5. Handle Post Actions
+$actionResult = null;
 
-            // Check DB connection
-            $dbOk = false;
-            $dbMsg = '';
-            try {
-                if (ArtisanRunner::bootstrap()) {
-                    DB::connection()->getPdo();
-                    $dbOk = true;
-                    $dbMsg = 'Connected ('.DB::connection()->getDatabaseName().')';
-                }
-            } catch (Throwable $e) {
-                $dbMsg = $e->getMessage();
-            }
+if ($isAuth && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['operation'])) {
+    $op = $_POST['operation'];
 
-            echo json_encode([
-                'success' => true,
-                'data' => [
-                    'commit' => $currentCommit,
-                    'branch' => $branch,
-                    'remote' => $remote,
-                    'maintenance' => $isDown,
-                    'db_ok' => $dbOk,
-                    'db_message' => $dbMsg,
-                    'app_name' => $envConfig['APP_NAME'] ?? 'Laravel',
-                    'app_env' => $envConfig['APP_ENV'] ?? 'production',
-                ],
-            ]);
-            exit;
+    switch ($op) {
+        case 'full_setup':
+            // 1. Run migrations
+            $r1 = LaravelApp::artisan('migrate', ['--force' => true]);
+            // 2. Run seeders
+            $r2 = LaravelApp::artisan('db:seed', ['--force' => true]);
+            // 3. Storage link
+            $r3 = LaravelApp::artisan('storage:link');
+            // 4. Optimize clear
+            $r4 = LaravelApp::artisan('optimize:clear');
 
-        case 'check_updates':
-            $branch = ! empty($_POST['branch']) ? trim($_POST['branch']) : GitManager::getBranch();
-            $res = GitManager::checkUpdates($branch);
-            echo json_encode(['success' => true, 'data' => $res]);
-            exit;
+            $allSuccess = ($r1['success'] && $r2['success']);
+            $combinedOutput = "========================================\n";
+            $combinedOutput .= "🚀 1. DATABASE MIGRATIONS:\n".$r1['output']."\n\n";
+            $combinedOutput .= "🌱 2. DATABASE SEEDING (ARTICLES & CATEGORIES):\n".$r2['output']."\n\n";
+            $combinedOutput .= "🔗 3. STORAGE SYMLINK:\n".$r3['output']."\n\n";
+            $combinedOutput .= "🧹 4. CACHE OPTIMIZATION:\n".$r4['output']."\n";
+            $combinedOutput .= '========================================';
 
-        case 'git_status':
-            $res = ProcessRunner::run('git status');
-            echo json_encode($res);
-            exit;
-
-        case 'git_diff':
-            $res = ProcessRunner::run('git diff');
-            echo json_encode($res);
-            exit;
-
-        case 'git_stash':
-            $res = ProcessRunner::run('git stash save "Stashed from Web Deployer at '.date('Y-m-d H:i:s').'"');
-            DeploymentHistory::log('Git Stash', $res['success'] ? 'success' : 'failed', $res['output'], $res['duration']);
-            echo json_encode($res);
-            exit;
-
-        case 'git_log':
-            $commits = GitManager::getRecentCommits(20);
-            echo json_encode(['success' => true, 'commits' => $commits]);
-            exit;
-
-        case 'git_pull':
-            $branch = ! empty($_POST['branch']) ? escapeshellarg(trim($_POST['branch'])) : GitManager::getBranch();
-            $res = ProcessRunner::run("git pull origin {$branch}");
-            $commitAfter = GitManager::getCurrentCommit()['short'];
-            DeploymentHistory::log("Git Pull ({$branch})", $res['success'] ? 'success' : 'failed', $res['output'], $res['duration'], $commitBefore, $commitAfter);
-            echo json_encode($res);
-            exit;
+            $actionResult = [
+                'success' => $allSuccess,
+                'title' => $allSuccess ? '✅ Full Setup Completed Successfully!' : '⚠️ Setup Completed with Warnings',
+                'output' => $combinedOutput,
+            ];
+            break;
 
         case 'migrate':
-            $res = ArtisanRunner::call('migrate', ['--force' => true]);
-            DeploymentHistory::log('Database Migrate', $res['success'] ? 'success' : 'failed', $res['output'] ?: $res['error'], $res['duration']);
-            echo json_encode($res);
-            exit;
-
-        case 'db_seed':
-            $res = ArtisanRunner::call('db:seed', ['--force' => true]);
-            ArtisanRunner::call('optimize:clear');
-            DeploymentHistory::log('Database Seed (db:seed)', $res['success'] ? 'success' : 'failed', $res['output'] ?: $res['error'], $res['duration']);
-            echo json_encode($res);
-            exit;
-
-        case 'migrate_status':
-            $res = ArtisanRunner::call('migrate:status');
-            echo json_encode($res);
-            exit;
-
-        case 'migrate_rollback':
-            $step = max(1, (int) ($_POST['step'] ?? 1));
-            $res = ArtisanRunner::call('migrate:rollback', ['--force' => true, '--step' => $step]);
-            DeploymentHistory::log("Migrate Rollback (step={$step})", $res['success'] ? 'success' : 'failed', $res['output'] ?: $res['error'], $res['duration']);
-            echo json_encode($res);
-            exit;
-
-        case 'git_rollback':
-            $targetCommit = trim($_POST['target_commit'] ?? '');
-            if (empty($targetCommit) || ! preg_match('/^[a-f0-9]{5,40}$/i', $targetCommit)) {
-                echo json_encode(['success' => false, 'error' => 'Invalid target commit hash provided.']);
-                exit;
-            }
-            $res = ProcessRunner::run('git reset --hard '.escapeshellarg($targetCommit));
-            $commitAfter = GitManager::getCurrentCommit()['short'];
-            // Clear caches after rollback
-            ArtisanRunner::call('optimize:clear');
-            DeploymentHistory::log("Git Rollback ({$targetCommit})", $res['success'] ? 'success' : 'failed', $res['output'], $res['duration'], $commitBefore, $commitAfter);
-            echo json_encode($res);
-            exit;
-
-        case 'cache_clear':
-            $res = ArtisanRunner::call('optimize:clear');
-            DeploymentHistory::log('Cache Clear (optimize:clear)', $res['success'] ? 'success' : 'failed', $res['output'] ?: $res['error'], $res['duration']);
-            echo json_encode($res);
-            exit;
-
-        case 'cache_all':
-            $log = [];
-            $totalDuration = 0;
-            $commands = [
-                'config:cache',
-                'route:cache',
-                'view:cache',
+            $res = LaravelApp::artisan('migrate', ['--force' => true]);
+            $actionResult = [
+                'success' => $res['success'],
+                'title' => $res['success'] ? '✅ Migrations Executed' : '❌ Migration Failed',
+                'output' => $res['output'],
             ];
-            $allSuccess = true;
-            foreach ($commands as $cmd) {
-                $r = ArtisanRunner::call($cmd);
-                $totalDuration += $r['duration'];
-                $log[] = ">>> php artisan {$cmd}\n".($r['output'] ?: $r['error']);
-                if (! $r['success']) {
-                    $allSuccess = false;
-                }
+            break;
+
+        case 'seed':
+            $res = LaravelApp::artisan('db:seed', ['--force' => true]);
+            LaravelApp::artisan('optimize:clear');
+            $actionResult = [
+                'success' => $res['success'],
+                'title' => $res['success'] ? '✅ Database Seeded Successfully' : '❌ Seeding Failed',
+                'output' => $res['output'],
+            ];
+            break;
+
+        case 'create_admin':
+            $name = trim($_POST['admin_name'] ?? 'Super Admin');
+            $email = trim($_POST['admin_email'] ?? 'superadmin@kisiitv.com');
+            $pass = trim($_POST['admin_password'] ?? 'Password123!');
+
+            if (empty($email) || empty($pass)) {
+                $actionResult = [
+                    'success' => false,
+                    'title' => '❌ Error',
+                    'output' => 'Email and Password are required to create an administrator account.',
+                ];
+            } else {
+                $res = LaravelApp::createAdmin($name, $email, $pass);
+                $actionResult = [
+                    'success' => $res['success'],
+                    'title' => $res['success'] ? '✅ Admin Account Ready' : '❌ Failed to Create Admin',
+                    'output' => $res['message'],
+                ];
             }
-            $finalOutput = implode("\n\n", $log);
-            DeploymentHistory::log('Optimize Cache (config, route, view)', $allSuccess ? 'success' : 'failed', $finalOutput, $totalDuration);
-            echo json_encode(['success' => $allSuccess, 'output' => $finalOutput, 'duration' => $totalDuration]);
-            exit;
+            break;
 
         case 'storage_link':
-            $res = ArtisanRunner::call('storage:link');
-            // Check if public/storage symlink exists
+            $res = LaravelApp::artisan('storage:link');
+            // Fallback native symlink
             if (! file_exists(BASE_PATH.'/public/storage') && file_exists(STORAGE_PATH.'/app/public')) {
                 @symlink(STORAGE_PATH.'/app/public', BASE_PATH.'/public/storage');
-                $res['output'] .= "\nNative PHP symlink() fallback executed.";
+                $res['output'] .= "\nNative PHP symlink created for public/storage.";
             }
-            DeploymentHistory::log('Storage Link', $res['success'] ? 'success' : 'failed', $res['output'] ?: $res['error'], $res['duration']);
-            echo json_encode($res);
-            exit;
+            $actionResult = [
+                'success' => $res['success'],
+                'title' => '🔗 Storage Link',
+                'output' => $res['output'],
+            ];
+            break;
 
-        case 'maintenance_toggle':
-            $isDown = file_exists(STORAGE_PATH.'/framework/down') || file_exists(STORAGE_PATH.'/framework/maintenance.php');
-            if ($isDown) {
-                $res = ArtisanRunner::call('up');
-                $msg = 'Application is now LIVE (maintenance mode disabled).';
-            } else {
-                $res = ArtisanRunner::call('down');
-                $msg = 'Application is now in MAINTENANCE MODE.';
-            }
-            $res['message'] = $msg;
-            DeploymentHistory::log($isDown ? 'Maintenance Mode OFF' : 'Maintenance Mode ON', $res['success'] ? 'success' : 'failed', $res['output'] ?: $msg, $res['duration']);
-            echo json_encode($res);
-            exit;
-
-        case 'full_deploy':
-            $startTime = microtime(true);
-            $branch = ! empty($_POST['branch']) ? trim($_POST['branch']) : GitManager::getBranch();
-            $enableMaintenance = ! empty($_POST['with_maintenance']);
-            $optimizeCache = ! empty($_POST['with_cache']);
-            $log = [];
-            $allSuccess = true;
-
-            $log[] = '=======================================================';
-            $log[] = '🚀 FULL AUTOMATED DEPLOYMENT PIPELINE STARTED';
-            $log[] = 'Time: '.date('Y-m-d H:i:s T');
-            $log[] = 'Target Branch: '.$branch;
-            $log[] = 'Starting Commit: '.$commitBefore;
-            $log[] = "=======================================================\n";
-
-            // Step 1: Maintenance Mode ON
-            if ($enableMaintenance) {
-                $log[] = '[Step 1/6] 🛡️ Enabling Maintenance Mode...';
-                $r = ArtisanRunner::call('down');
-                $log[] = ($r['output'] ?: 'Application put into maintenance mode.')."\n";
-            } else {
-                $log[] = "[Step 1/6] ⏩ Maintenance mode skipped (Zero-downtime requested).\n";
-            }
-
-            // Step 2: Git Pull
-            $log[] = "[Step 2/6] 📥 Pulling latest code from origin/{$branch}...";
-            $r = ProcessRunner::run('git pull origin '.escapeshellarg($branch));
-            $log[] = $r['output'] ?: $r['error'];
-            if (! $r['success']) {
-                $log[] = '❌ ERROR: Git pull failed!';
-                $allSuccess = false;
-            }
-            $log[] = '';
-
-            // Step 3: Run Database Migrations
-            $log[] = '[Step 3/6] 🗄️ Running Database Migrations...';
-            $r = ArtisanRunner::call('migrate', ['--force' => true]);
-            $log[] = $r['output'] ?: ($r['success'] ? 'Nothing to migrate.' : $r['error']);
-            if (! $r['success']) {
-                $log[] = '❌ WARNING: Database migration encountered an issue.';
-            }
-            $log[] = '';
-
-            // Step 4: Clear & Refresh Caches
-            $log[] = '[Step 4/6] 🧹 Clearing application caches...';
-            $r = ArtisanRunner::call('optimize:clear');
-            $log[] = $r['output'] ?: 'Caches cleared.';
-            $log[] = '';
-
-            // Step 5: Storage Link & Optional Cache Optimization
-            $log[] = '[Step 5/6] 🔗 Verifying storage symlink & optimization...';
-            $r = ArtisanRunner::call('storage:link');
-            if ($optimizeCache) {
-                $log[] = 'Rebuilding optimized production caches (config, routes, views)...';
-                ArtisanRunner::call('config:cache');
-                ArtisanRunner::call('route:cache');
-                ArtisanRunner::call('view:cache');
-            }
-            $log[] = "Storage link and caching completed.\n";
-
-            // Step 6: Bring application back Live
-            if ($enableMaintenance) {
-                $log[] = '[Step 6/6] 🌐 Bringing application back LIVE...';
-                $r = ArtisanRunner::call('up');
-                $log[] = ($r['output'] ?: 'Application is now live.')."\n";
-            } else {
-                $log[] = "[Step 6/6] 🌐 Deployment finished in live mode.\n";
-            }
-
-            $totalDuration = round(microtime(true) - $startTime, 3);
-            $commitAfter = GitManager::getCurrentCommit()['short'];
-
-            $log[] = '=======================================================';
-            $log[] = $allSuccess ? '✅ DEPLOYMENT FINISHED SUCCESSFULLY!' : '⚠️ DEPLOYMENT FINISHED WITH WARNINGS/ERRORS';
-            $log[] = "Previous Commit: {$commitBefore} | New Commit: {$commitAfter}";
-            $log[] = "Total Duration: {$totalDuration}s";
-            $log[] = '=======================================================';
-
-            $finalOutput = implode("\n", $log);
-            DeploymentHistory::log("Full Deployment ({$branch})", $allSuccess ? 'success' : 'failed', $finalOutput, $totalDuration, $commitBefore, $commitAfter);
-
-            echo json_encode([
-                'success' => $allSuccess,
-                'output' => $finalOutput,
-                'duration' => $totalDuration,
-                'commit_before' => $commitBefore,
-                'commit_after' => $commitAfter,
-            ]);
-            exit;
-
-        case 'get_history':
-            echo json_encode(['success' => true, 'history' => DeploymentHistory::getAll()]);
-            exit;
-
-        case 'get_laravel_logs':
-            $logFile = STORAGE_PATH.'/logs/laravel.log';
-            if (! file_exists($logFile)) {
-                echo json_encode(['success' => true, 'output' => 'laravel.log does not exist yet.']);
-                exit;
-            }
-            // Read last 60 lines
-            $lines = [];
-            $fp = @fopen($logFile, 'r');
-            if ($fp) {
-                $buffer = '';
-                $pos = -2;
-                $lineCount = 0;
-                $targetLines = 60;
-                @fseek($fp, 0, SEEK_END);
-                $fileSize = ftell($fp);
-                while ($fileSize + $pos >= 0 && $lineCount < $targetLines) {
-                    fseek($fp, $pos, SEEK_END);
-                    $char = fgetc($fp);
-                    if ($char === "\n") {
-                        $lineCount++;
-                    }
-                    $pos--;
-                }
-                $output = fread($fp, abs($pos));
-                fclose($fp);
-                echo json_encode(['success' => true, 'output' => $output]);
-                exit;
-            }
-            echo json_encode(['success' => false, 'error' => 'Unable to read laravel.log file.']);
-            exit;
-
-        case 'get_diagnostics':
-            $disabledFunctions = explode(',', ini_get('disable_functions') ?: '');
-            $disabledFunctions = array_filter(array_map('trim', $disabledFunctions));
-
-            $storageWritable = is_writable(STORAGE_PATH);
-            $cacheWritable = is_writable(BASE_PATH.'/bootstrap/cache');
-            $gitFolderExists = is_dir(BASE_PATH.'/.git');
-
-            $phpProcOpen = function_exists('proc_open') && ! in_array('proc_open', $disabledFunctions, true);
-            $phpExec = function_exists('exec') && ! in_array('exec', $disabledFunctions, true);
-            $phpShellExec = function_exists('shell_exec') && ! in_array('shell_exec', $disabledFunctions, true);
-
-            $gitVersion = ProcessRunner::run('git --version');
-
-            echo json_encode([
-                'success' => true,
-                'data' => [
-                    'php_version' => PHP_VERSION,
-                    'server_software' => $_SERVER['SERVER_SOFTWARE'] ?? 'Unknown',
-                    'disabled_functions' => $disabledFunctions,
-                    'storage_writable' => $storageWritable,
-                    'cache_writable' => $cacheWritable,
-                    'git_exists' => $gitFolderExists,
-                    'proc_open_available' => $phpProcOpen,
-                    'exec_available' => $phpExec,
-                    'shell_exec_available' => $phpShellExec,
-                    'git_version' => $gitVersion['success'] ? $gitVersion['output'] : 'Git not found or command blocked',
-                ],
-            ]);
-            exit;
-
-        default:
-            echo json_encode(['success' => false, 'error' => "Unknown action '{$action}'."]);
-            exit;
+        case 'cache_clear':
+            $res = LaravelApp::artisan('optimize:clear');
+            $actionResult = [
+                'success' => $res['success'],
+                'title' => '🧹 Caches Cleared',
+                'output' => $res['output'],
+            ];
+            break;
     }
 }
 
-// 12. View Rendering
+// 6. Direct URL Action trigger (e.g. ?run=seed&key=...)
+if ($isAuth && isset($_GET['run'])) {
+    if ($_GET['run'] === 'full' || $_GET['run'] === 'seed') {
+        $r1 = LaravelApp::artisan('migrate', ['--force' => true]);
+        $r2 = LaravelApp::artisan('db:seed', ['--force' => true]);
+        LaravelApp::artisan('storage:link');
+        LaravelApp::artisan('optimize:clear');
+        $actionResult = [
+            'success' => ($r1['success'] && $r2['success']),
+            'title' => '✅ Full Setup Executed via Direct Link',
+            'output' => "MIGRATIONS:\n".$r1['output']."\n\nSEEDING:\n".$r2['output'],
+        ];
+    }
+}
+
+$stats = $isAuth ? LaravelApp::getStats() : [];
 ?>
 <!DOCTYPE html>
-<html lang="en" class="h-full bg-slate-950 text-slate-100">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Web Deployer & Operations Manager — <?= htmlspecialchars($envConfig['APP_NAME'] ?? 'Laravel') ?></title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <script src="https://cdn.tailwindcss.com"></script>
+    <title>Production Control Center — Kisiitv News</title>
     <style>
-        *, ::before, ::after { box-sizing: border-box; margin: 0; padding: 0; }
-        html, body { min-height: 100vh; background-color: #030712; color: #f3f4f6; font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; -webkit-font-smoothing: antialiased; }
-        code, pre, .mono, .font-mono { font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
-
-        /* Custom scrollbars */
-        ::-webkit-scrollbar { width: 8px; height: 8px; }
-        ::-webkit-scrollbar-track { background: #0b0f19; }
-        ::-webkit-scrollbar-thumb { background: #1f2937; border-radius: 4px; }
-        ::-webkit-scrollbar-thumb:hover { background: #374151; }
-
-        /* Layout & Containers */
-        .flex { display: flex; }
-        .flex-col { flex-direction: column; }
-        .flex-wrap { flex-wrap: wrap; }
-        .flex-1 { flex: 1 1 0%; }
-        .items-start { align-items: flex-start; }
-        .items-center { align-items: center; }
-        .justify-start { justify-content: flex-start; }
-        .justify-center { justify-content: center; }
-        .justify-between { justify-content: space-between; }
-        .min-h-screen { min-height: 100vh; }
-        .w-2 { width: 0.5rem; }
-        .h-2 { height: 0.5rem; }
-        .w-3 { width: 0.75rem; }
-        .h-3 { height: 0.75rem; }
-        .w-4 { width: 1rem; }
-        .h-4 { height: 1rem; }
-        .w-9 { width: 2.25rem; }
-        .h-9 { height: 2.25rem; }
-        .w-10 { width: 2.5rem; }
-        .h-10 { height: 2.5rem; }
-        .w-24 { width: 6rem; }
-        .w-full { width: 100%; }
-        .w-auto { width: auto; }
-        .max-w-md { max-width: 28rem; }
-        .max-w-xl { max-width: 36rem; }
-        .max-w-7xl { max-width: 80rem; }
-        .mx-auto { margin-left: auto; margin-right: auto; }
-        .relative { position: relative; }
-        .sticky { position: sticky; }
-        .top-0 { top: 0; }
-        .z-40 { z-index: 40; }
-        .overflow-hidden { overflow: hidden; }
-        .overflow-x-auto { overflow-x: auto; }
-        .overflow-y-auto { overflow-y: auto; }
-        .max-h-80 { max-height: 20rem; }
-        .max-h-96 { max-height: 24rem; }
-        .h-64 { height: 16rem; }
-
-        /* Grid */
-        .grid { display: grid; }
-        .grid-cols-1 { grid-template-columns: repeat(1, minmax(0, 1fr)); }
-        @media (min-width: 640px) {
-            .sm\:grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-            .sm\:flex-row { flex-direction: row; }
-            .sm\:items-center { align-items: center; }
-            .sm\:px-6 { padding-left: 1.5rem; padding-right: 1.5rem; }
-        }
-        @media (min-width: 768px) {
-            .md\:grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-            .md\:flex-row { flex-direction: row; }
-            .md\:items-center { align-items: center; }
-            .md\:w-auto { width: auto; }
-        }
-        @media (min-width: 1024px) {
-            .lg\:grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-            .lg\:grid-cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-            .lg\:px-8 { padding-left: 2rem; padding-right: 2rem; }
+        /* 100% Standalone, Bulletproof CSS (Guaranteed Styling) */
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        html, body {
+            background-color: #030712;
+            color: #f3f4f6;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            font-size: 15px;
+            line-height: 1.5;
+            min-height: 100vh;
+            -webkit-font-smoothing: antialiased;
         }
 
-        /* Spacing & Padding */
-        .gap-1\.5 { gap: 0.375rem; }
-        .gap-2 { gap: 0.5rem; }
-        .gap-3 { gap: 0.75rem; }
-        .gap-4 { gap: 1rem; }
-        .gap-6 { gap: 1.5rem; }
-        .space-x-1 > * + * { margin-left: 0.25rem; }
-        .space-x-1\.5 > * + * { margin-left: 0.375rem; }
-        .space-x-2 > * + * { margin-left: 0.5rem; }
-        .space-x-3 > * + * { margin-left: 0.75rem; }
-        .space-y-0\.5 > * + * { margin-top: 0.125rem; }
-        .space-y-1\.5 > * + * { margin-top: 0.375rem; }
-        .space-y-2 > * + * { margin-top: 0.5rem; }
-        .space-y-2\.5 > * + * { margin-top: 0.625rem; }
-        .space-y-4 > * + * { margin-top: 1rem; }
-        .space-y-6 > * + * { margin-top: 1.5rem; }
-
-        .p-2 { padding: 0.5rem; }
-        .p-2\.5 { padding: 0.625rem; }
-        .p-3 { padding: 0.75rem; }
-        .p-3\.5 { padding: 0.875rem; }
-        .p-4 { padding: 1rem; }
-        .p-5 { padding: 1.25rem; }
-        .p-6 { padding: 1.5rem; }
-        .p-8 { padding: 2rem; }
-        .px-1\.5 { padding-left: 0.375rem; padding-right: 0.375rem; }
-        .px-2 { padding-left: 0.5rem; padding-right: 0.5rem; }
-        .px-2\.5 { padding-left: 0.625rem; padding-right: 0.625rem; }
-        .px-3 { padding-left: 0.75rem; padding-right: 0.75rem; }
-        .px-4 { padding-left: 1rem; padding-right: 1rem; }
-        .px-7 { padding-left: 1.75rem; padding-right: 1.75rem; }
-        .py-0\.5 { padding-top: 0.125rem; padding-bottom: 0.125rem; }
-        .py-1 { padding-top: 0.25rem; padding-bottom: 0.25rem; }
-        .py-1\.5 { padding-top: 0.375rem; padding-bottom: 0.375rem; }
-        .py-2 { padding-top: 0.5rem; padding-bottom: 0.5rem; }
-        .py-2\.5 { padding-top: 0.625rem; padding-bottom: 0.625rem; }
-        .py-3 { padding-top: 0.75rem; padding-bottom: 0.75rem; }
-        .py-3\.5 { padding-top: 0.875rem; padding-bottom: 0.875rem; }
-        .py-4 { padding-top: 1rem; padding-bottom: 1rem; }
-        .py-6 { padding-top: 1.5rem; padding-bottom: 1.5rem; }
-        .py-8 { padding-top: 2rem; padding-bottom: 2rem; }
-        .mb-1 { margin-bottom: 0.25rem; }
-        .mb-1\.5 { margin-bottom: 0.375rem; }
-        .mb-2 { margin-bottom: 0.5rem; }
-        .mb-3 { margin-bottom: 0.75rem; }
-        .mb-4 { margin-bottom: 1rem; }
-        .mb-5 { margin-bottom: 1.25rem; }
-        .mb-6 { margin-bottom: 1.5rem; }
-        .ml-1 { margin-left: 0.25rem; }
-        .ml-2 { margin-left: 0.5rem; }
-        .mt-0\.5 { margin-top: 0.125rem; }
-        .mt-1 { margin-top: 0.25rem; }
-        .mt-2 { margin-top: 0.5rem; }
-        .mt-3 { margin-top: 0.75rem; }
-        .mt-4 { margin-top: 1rem; }
-        .mt-6 { margin-top: 1.5rem; }
-        .pt-1 { padding-top: 0.25rem; }
-        .pt-2 { padding-top: 0.5rem; }
-        .pt-4 { padding-top: 1rem; }
-        .pb-4 { padding-bottom: 1rem; }
-
-        /* Typography */
-        .text-\[10px\] { font-size: 10px; }
-        .text-\[11px\] { font-size: 11px; }
-        .text-\[12px\] { font-size: 12px; }
-        .text-xs { font-size: 0.75rem; line-height: 1rem; }
-        .text-sm { font-size: 0.875rem; line-height: 1.25rem; }
-        .text-base { font-size: 1rem; line-height: 1.5rem; }
-        .text-lg { font-size: 1.125rem; line-height: 1.75rem; }
-        .text-xl { font-size: 1.25rem; line-height: 1.75rem; }
-        .font-medium { font-weight: 500; }
-        .font-semibold { font-weight: 600; }
-        .font-bold { font-weight: 700; }
-        .font-extrabold { font-weight: 800; }
-        .uppercase { text-transform: uppercase; }
-        .tracking-tight { letter-spacing: -0.025em; }
-        .tracking-wide { letter-spacing: 0.025em; }
-        .tracking-wider { letter-spacing: 0.05em; }
-        .leading-relaxed { line-height: 1.625; }
-        .text-center { text-align: center; }
-        .text-right { text-align: right; }
-        .text-left { text-align: left; }
-        .whitespace-pre-wrap { white-space: pre-wrap; }
-        .break-all { word-break: break-all; }
-        .block { display: block; }
-        .inline-block { display: inline-block; }
-        .inline-flex { display: inline-flex; }
-
-        /* Colors & Backgrounds */
-        .text-white { color: #ffffff; }
-        .text-slate-100 { color: #f1f5f9; }
-        .text-slate-200 { color: #e2e8f0; }
-        .text-slate-300 { color: #cbd5e1; }
-        .text-slate-400 { color: #94a3b8; }
-        .text-slate-500 { color: #64748b; }
-        .text-sky-200 { color: #bae6fd; }
-        .text-sky-300 { color: #7dd3fc; }
-        .text-sky-400 { color: #38bdf8; }
-        .text-sky-500 { color: #0ea5e9; }
-        .text-emerald-300 { color: #6ee7b7; }
-        .text-emerald-400 { color: #34d399; }
-        .text-amber-200 { color: #fde68a; }
-        .text-amber-300 { color: #fcd34d; }
-        .text-amber-400 { color: #fbbf24; }
-        .text-rose-300 { color: #fca5a5; }
-        .text-rose-400 { color: #f87171; }
-        .text-indigo-300 { color: #a5b4fc; }
-        .text-indigo-400 { color: #818cf8; }
-
-        .bg-black\/40 { background-color: rgba(0, 0, 0, 0.4); }
-        .bg-black\/50 { background-color: rgba(0, 0, 0, 0.5); }
-        .bg-black\/60 { background-color: rgba(0, 0, 0, 0.6); }
-        .bg-slate-800 { background-color: #1e293b; }
-        .bg-slate-800\/60 { background-color: rgba(30, 41, 59, 0.6); }
-        .bg-slate-800\/70 { background-color: rgba(30, 41, 59, 0.7); }
-        .bg-slate-900 { background-color: #0f172a; }
-        .bg-slate-900\/50 { background-color: rgba(15, 23, 42, 0.5); }
-        .bg-slate-900\/60 { background-color: rgba(15, 23, 42, 0.6); }
-        .bg-slate-900\/70 { background-color: rgba(15, 23, 42, 0.7); }
-        .bg-slate-900\/80 { background-color: rgba(15, 23, 42, 0.8); }
-        .bg-slate-900\/90 { background-color: rgba(15, 23, 42, 0.9); }
-        .bg-slate-950 { background-color: #020617; }
-        .bg-slate-950\/60 { background-color: rgba(2, 6, 23, 0.6); }
-        .bg-slate-950\/70 { background-color: rgba(2, 6, 23, 0.7); }
-        .bg-slate-950\/80 { background-color: rgba(2, 6, 23, 0.8); }
-        .bg-sky-500 { background-color: #0ea5e9; }
-        .bg-sky-600 { background-color: #0284c7; }
-        .bg-emerald-400 { background-color: #34d399; }
-        .bg-emerald-500 { background-color: #10b981; }
-        .bg-emerald-600 { background-color: #059669; }
-        .bg-emerald-950 { background-color: #022c22; }
-        .bg-amber-400 { background-color: #fbbf24; }
-        .bg-amber-600 { background-color: #d97706; }
-        .bg-amber-700 { background-color: #b45309; }
-        .bg-amber-900\/40 { background-color: rgba(120, 53, 15, 0.4); }
-        .bg-amber-950\/40 { background-color: rgba(69, 26, 3, 0.4); }
-        .bg-rose-400 { background-color: #f87171; }
-        .bg-rose-500\/80 { background-color: rgba(244, 63, 94, 0.8); }
-        .bg-amber-500\/80 { background-color: rgba(245, 158, 11, 0.8); }
-        .bg-emerald-500\/80 { background-color: rgba(16, 185, 129, 0.8); }
-        .bg-rose-600 { background-color: #e11d48; }
-        .bg-rose-950 { background-color: #4c0519; }
-        .bg-rose-950\/60 { background-color: rgba(76, 5, 25, 0.6); }
-        .bg-indigo-950\/70 { background-color: rgba(30, 27, 75, 0.7); }
-        .bg-indigo-950\/80 { background-color: rgba(30, 27, 75, 0.8); }
-
-        /* Borders */
-        .border { border-width: 1px; border-style: solid; }
-        .border-t { border-top-width: 1px; border-top-style: solid; }
-        .border-b { border-bottom-width: 1px; border-bottom-style: solid; }
-        .border-slate-700 { border-color: #334155; }
-        .border-slate-700\/80 { border-color: rgba(51, 65, 85, 0.8); }
-        .border-slate-800 { border-color: #1e293b; }
-        .border-slate-800\/60 { border-color: rgba(30, 41, 59, 0.6); }
-        .border-slate-800\/80 { border-color: rgba(30, 41, 59, 0.8); }
-        .border-indigo-800 { border-color: #3730a3; }
-        .border-indigo-800\/80 { border-color: rgba(55, 48, 163, 0.8); }
-        .border-indigo-900\/40 { border-color: rgba(49, 46, 129, 0.4); }
-        .border-emerald-800 { border-color: #065f46; }
-        .border-emerald-800\/60 { border-color: rgba(6, 95, 70, 0.6); }
-        .border-amber-800\/50 { border-color: rgba(146, 64, 14, 0.5); }
-        .border-amber-800\/60 { border-color: rgba(146, 64, 14, 0.6); }
-        .border-amber-900\/40 { border-color: rgba(120, 53, 15, 0.4); }
-        .border-rose-800 { border-color: #9f1239; }
-        .border-rose-800\/80 { border-color: rgba(159, 18, 57, 0.8); }
-        .border-rose-900\/40 { border-color: rgba(136, 19, 55, 0.4); }
-        .divide-y > * + * { border-top-width: 1px; border-top-style: solid; border-top-color: #1e293b; }
-
-        /* Radii */
-        .rounded { border-radius: 0.25rem; }
-        .rounded-lg { border-radius: 0.5rem; }
-        .rounded-xl { border-radius: 0.75rem; }
-        .rounded-2xl { border-radius: 1rem; }
-        .rounded-full { border-radius: 9999px; }
-
-        /* Shadows & Blur */
-        .shadow-md { box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3); }
-        .shadow-lg { box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3); }
-        .shadow-xl { box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.4); }
-        .shadow-2xl { box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6); }
-        .backdrop-blur-md { backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
-        .backdrop-blur-xl { backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); }
-
-        /* Gradients */
-        .bg-gradient-to-tr { background-image: linear-gradient(to top right, #0ea5e9, #4f46e5); }
-        .bg-gradient-to-r { background-image: linear-gradient(to right, #0ea5e9, #4f46e5); }
-        .bg-gradient-to-br { background-image: linear-gradient(to bottom right, #0f172a, #0f172a, rgba(30, 27, 75, 0.6)); }
-
-        /* Form Inputs & Buttons */
-        input[type="password"], input[type="text"], select {
-            box-sizing: border-box;
-            outline: none;
-            transition: all 0.15s ease-in-out;
+        .container {
+            max-width: 960px;
+            margin: 0 auto;
+            padding: 30px 20px 60px;
         }
-        input[type="password"]:focus, input[type="text"]:focus, select:focus {
-            border-color: #38bdf8 !important;
-            box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.3) !important;
+
+        /* Top Bar */
+        .top-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: #0f172a;
+            border: 1px solid #1e293b;
+            border-radius: 16px;
+            padding: 16px 24px;
+            margin-bottom: 24px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4);
         }
-        button, input[type="submit"] {
-            cursor: pointer;
-            transition: all 0.15s ease-in-out;
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+        .brand-icon {
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            background: linear-gradient(135deg, #0284c7, #4f46e5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+            box-shadow: 0 4px 12px rgba(2, 132, 199, 0.3);
+        }
+        .brand-text h1 {
+            font-size: 18px;
+            font-weight: 700;
+            color: #ffffff;
+            letter-spacing: -0.01em;
+        }
+        .brand-text p {
+            font-size: 12px;
+            color: #94a3b8;
+        }
+        .top-links {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .btn-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 14px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 0.15s ease;
+            border: 1px solid transparent;
+        }
+        .btn-live {
+            background: rgba(14, 165, 233, 0.15);
+            color: #38bdf8;
+            border-color: rgba(14, 165, 233, 0.3);
+        }
+        .btn-live:hover {
+            background: #0ea5e9;
+            color: #ffffff;
+        }
+        .btn-logout {
+            background: rgba(239, 68, 68, 0.15);
+            color: #f87171;
+            border-color: rgba(239, 68, 68, 0.3);
+        }
+        .btn-logout:hover {
+            background: #ef4444;
+            color: #ffffff;
+        }
+
+        /* Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        .stat-card {
+            background: #0f172a;
+            border: 1px solid #1e293b;
+            border-radius: 14px;
+            padding: 16px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .stat-label {
+            font-size: 12px;
+            font-weight: 600;
+            color: #94a3b8;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .stat-value {
+            font-size: 26px;
+            font-weight: 800;
+            color: #38bdf8;
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        }
+        .stat-status {
+            font-size: 12px;
+            font-weight: 600;
+            padding: 4px 10px;
+            border-radius: 20px;
+        }
+        .status-ok { background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
+        .status-warn { background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); }
+
+        /* Main Setup Hero Card */
+        .hero-card {
+            background: linear-gradient(135deg, #0f172a, #1e1b4b);
+            border: 1px solid #3730a3;
+            border-radius: 20px;
+            padding: 28px;
+            margin-bottom: 24px;
+            box-shadow: 0 20px 40px -10px rgba(55, 48, 163, 0.3);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 24px;
+            flex-wrap: wrap;
+        }
+        .hero-info h2 {
+            font-size: 20px;
+            font-weight: 800;
+            color: #ffffff;
+            margin-bottom: 6px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .hero-info p {
+            font-size: 13px;
+            color: #cbd5e1;
+            max-width: 540px;
+            line-height: 1.6;
+        }
+        .btn-hero {
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: #ffffff;
             border: none;
+            border-radius: 14px;
+            padding: 16px 28px;
+            font-size: 15px;
+            font-weight: 800;
+            cursor: pointer;
+            box-shadow: 0 10px 25px -5px rgba(16, 185, 129, 0.5);
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            white-space: nowrap;
         }
-        button:hover, input[type="submit"]:hover {
+        .btn-hero:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 15px 30px -5px rgba(16, 185, 129, 0.6);
             filter: brightness(1.1);
         }
-        button:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
+
+        /* Action Result Alert */
+        .alert-box {
+            background: #090d16;
+            border: 1px solid #1e293b;
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 24px;
+        }
+        .alert-title {
+            font-size: 15px;
+            font-weight: 700;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .alert-output {
+            background: #020617;
+            border: 1px solid #1e293b;
+            border-radius: 10px;
+            padding: 16px;
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 12px;
+            color: #e2e8f0;
+            max-height: 280px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            line-height: 1.6;
         }
 
-        .hidden { display: none !important; }
-        .glow-emerald { box-shadow: 0 0 25px -5px rgba(16, 185, 129, 0.35); }
-        .glow-indigo { box-shadow: 0 0 25px -5px rgba(99, 102, 241, 0.35); }
-        .tab-btn { background: transparent; border: none; cursor: pointer; border-bottom: 2px solid transparent; }
-        .tab-btn.active { background: #1f2937 !important; color: #38bdf8 !important; border-bottom: 2px solid #38bdf8 !important; }
-        .terminal-window { background: #070b14; border: 1px solid #1e293b; border-radius: 12px; }
-        .spin { animation: spin 1s linear infinite; display: inline-block; }
-        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-        .animate-pulse { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
-        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
+        /* Two Columns Layout */
+        .two-cols {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+            gap: 24px;
+            margin-bottom: 24px;
+        }
+        .card {
+            background: #0f172a;
+            border: 1px solid #1e293b;
+            border-radius: 16px;
+            padding: 24px;
+        }
+        .card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid #1e293b;
+        }
+        .card-header h3 {
+            font-size: 15px;
+            font-weight: 700;
+            color: #ffffff;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* Forms & Inputs */
+        .form-group {
+            margin-bottom: 14px;
+        }
+        .form-group label {
+            display: block;
+            font-size: 12px;
+            font-weight: 600;
+            color: #94a3b8;
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+        .input-text {
+            width: 100%;
+            background: #020617;
+            border: 1px solid #334155;
+            border-radius: 10px;
+            padding: 10px 14px;
+            color: #ffffff;
+            font-size: 14px;
+            outline: none;
+            transition: all 0.15s ease;
+        }
+        .input-text:focus {
+            border-color: #38bdf8;
+            box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.2);
+        }
+
+        /* Buttons */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 11px 18px;
+            border-radius: 10px;
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+            border: 1px solid transparent;
+            transition: all 0.15s ease;
+            text-decoration: none;
+            width: 100%;
+        }
+        .btn-indigo {
+            background: linear-gradient(135deg, #0284c7, #6366f1);
+            color: #ffffff;
+            box-shadow: 0 4px 14px rgba(2, 132, 199, 0.3);
+        }
+        .btn-indigo:hover {
+            filter: brightness(1.1);
+            transform: translateY(-1px);
+        }
+        .btn-secondary {
+            background: #1e293b;
+            color: #cbd5e1;
+            border-color: #334155;
+        }
+        .btn-secondary:hover {
+            background: #334155;
+            color: #ffffff;
+        }
+
+        /* Button Grid */
+        .btn-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+        }
+
+        /* Login Card */
+        .login-wrap {
+            min-height: 80vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .login-card {
+            background: #0f172a;
+            border: 1px solid #1e293b;
+            border-radius: 20px;
+            padding: 36px;
+            max-width: 440px;
+            width: 100%;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6);
+        }
+
+        /* Default Creds Box */
+        .creds-box {
+            background: rgba(2, 132, 199, 0.1);
+            border: 1px solid rgba(2, 132, 199, 0.3);
+            border-radius: 10px;
+            padding: 12px 16px;
+            margin-bottom: 16px;
+            font-size: 12px;
+        }
+        .creds-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 4px;
+        }
+        .creds-row strong {
+            color: #38bdf8;
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        }
     </style>
 </head>
-<body class="flex flex-col min-h-screen">
+<body>
 
-<?php if (! $isAuthenticated) { ?>
-<!-- LOGIN SCREEN -->
-<div class="flex-1 flex items-center justify-center p-4">
-    <div class="w-full max-w-md bg-slate-900/90 border border-slate-800 rounded-2xl p-8 shadow-2xl backdrop-blur-xl">
-        <div class="flex items-center space-x-3 mb-6">
-            <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-sky-500 to-indigo-600 flex items-center justify-center font-bold text-white shadow-lg shadow-sky-500/20">
-                🚀
-            </div>
-            <div>
-                <h1 class="text-xl font-bold tracking-tight text-white"><?= htmlspecialchars($envConfig['APP_NAME'] ?? 'Laravel') ?></h1>
-                <p class="text-xs text-slate-400">Web Deployment & Operations Manager</p>
-            </div>
-        </div>
+<div class="container">
 
-        <?php if ($authError) { ?>
-            <div class="mb-4 p-3.5 bg-rose-950/60 border border-rose-800/80 rounded-xl text-xs text-rose-300 flex items-start space-x-2">
-                <span class="text-sm">⚠️</span>
-                <span><?= htmlspecialchars($authError) ?></span>
-            </div>
-        <?php } ?>
-
-        <?php if ($isDerivedSecret) { ?>
-            <div class="mb-5 p-3.5 bg-amber-950/40 border border-amber-800/50 rounded-xl text-xs text-amber-200">
-                <p class="font-semibold mb-1">🔑 First-time setup / Default Key:</p>
-                <p class="text-slate-300 mb-2">No <code class="bg-amber-900/40 px-1 py-0.5 rounded text-amber-300">DEPLOY_SECRET</code> was found in your <code class="text-amber-300">.env</code>. A fallback secret was derived from your <code class="text-amber-300">APP_KEY</code>:</p>
-                <div class="bg-black/50 p-2 rounded border border-amber-900/40 select-all font-mono text-[11px] break-all text-amber-400">
-                    <?= htmlspecialchars($configuredSecret) ?>
+<?php if (! $isAuth) { ?>
+    <!-- 1. LOGIN SCREEN -->
+    <div class="login-wrap">
+        <div class="login-card">
+            <div style="display:flex;align-items:center;gap:14px;margin-bottom:24px;">
+                <div class="brand-icon">🚀</div>
+                <div>
+                    <h1 style="font-size:20px;font-weight:800;color:#fff;">Kisiitv News</h1>
+                    <p style="font-size:12px;color:#94a3b8;">Production Database & Setup Manager</p>
                 </div>
-                <p class="text-[10px] text-slate-400 mt-2">To set a custom secret, add <code class="text-amber-300">DEPLOY_SECRET=your_password</code> in your <code class="text-amber-300">.env</code> file.</p>
-            </div>
-        <?php } ?>
-
-        <form method="POST" action="" class="space-y-4">
-            <div>
-                <label for="login_secret" class="block text-xs font-medium text-slate-300 mb-1.5">Deployment Secret Key</label>
-                <input type="password" id="login_secret" name="login_secret" required autofocus placeholder="Enter your secret key..."
-                    class="w-full bg-slate-950/80 border border-slate-700/80 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent transition">
             </div>
 
-            <button type="submit"
-                class="w-full bg-gradient-to-r from-sky-500 hover:from-sky-400 to-indigo-600 hover:to-indigo-500 text-white font-semibold py-3 px-4 rounded-xl text-sm shadow-lg shadow-sky-500/25 transition duration-150 flex items-center justify-center space-x-2">
-                <span>Unlock Deployment Manager</span>
-                <span>→</span>
-            </button>
-        </form>
+            <?php if (! empty($loginError)) { ?>
+                <div style="background:rgba(239,68,68,0.15);border:1px solid #ef4444;border-radius:10px;padding:12px;margin-bottom:16px;font-size:12px;color:#fca5a5;">
+                    ⚠️ <?= htmlspecialchars($loginError) ?>
+                </div>
+            <?php } ?>
 
-        <div class="mt-6 pt-4 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-500">
-            <span>Security: Protected Session</span>
-            <span>v<?= DEPLOYER_VERSION ?></span>
+            <form method="POST" action="">
+                <div class="form-group">
+                    <label for="login_key">Deployment Secret Key</label>
+                    <input type="password" id="login_key" name="login_key" required autofocus class="input-text" placeholder="Enter deployment key...">
+                </div>
+                <button type="submit" class="btn btn-indigo" style="margin-top:12px;">
+                    <span>Unlock Control Center</span>
+                    <span>&rarr;</span>
+                </button>
+            </form>
+
+            <div style="margin-top:20px;padding-top:16px;border-top:1px solid #1e293b;font-size:11px;color:#64748b;text-align:center;">
+                Default Secret: <code style="color:#38bdf8;background:#020617;padding:2px 6px;border-radius:4px;">deployer_admin_secret_key_2026</code>
+            </div>
         </div>
     </div>
-</div>
 
 <?php } else { ?>
-<!-- AUTHENTICATED DASHBOARD -->
-<header class="border-b border-slate-800/80 bg-slate-900/60 backdrop-blur-md sticky top-0 z-40">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex flex-wrap items-center justify-between gap-4">
-        <!-- Logo & App Title -->
-        <div class="flex items-center space-x-3">
-            <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-sky-500 to-indigo-600 flex items-center justify-center font-bold text-white shadow-md shadow-sky-500/20 text-base">
-                🚀
-            </div>
-            <div>
-                <div class="flex items-center space-x-2">
-                    <h1 class="text-sm font-bold text-white tracking-wide"><?= htmlspecialchars($envConfig['APP_NAME'] ?? 'Laravel') ?></h1>
-                    <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">v<?= DEPLOYER_VERSION ?></span>
-                    <span id="badge-env" class="text-[10px] uppercase font-semibold px-2 py-0.5 rounded-full bg-indigo-950/70 text-indigo-400 border border-indigo-800">
-                        <?= htmlspecialchars($envConfig['APP_ENV'] ?? 'production') ?>
-                    </span>
-                </div>
-                <p class="text-[11px] text-slate-400 flex items-center space-x-2">
-                    <span>Branch: <strong id="header-branch" class="text-sky-400 mono">loading...</strong></span>
-                    <span>•</span>
-                    <span>Commit: <strong id="header-commit" class="text-emerald-400 mono">loading...</strong></span>
-                </p>
+    <!-- 2. AUTHENTICATED DASHBOARD -->
+
+    <!-- Top Bar -->
+    <div class="top-bar">
+        <div class="brand">
+            <div class="brand-icon">🚀</div>
+            <div class="brand-text">
+                <h1>Kisiitv Newsroom Manager</h1>
+                <p>Environment: <strong style="color:#10b981;">Production</strong> • DB: <strong style="color:#38bdf8;"><?= htmlspecialchars($stats['db_name'] ?: 'mysql') ?></strong></p>
             </div>
         </div>
-
-        <!-- Quick Status Pills -->
-        <div class="flex items-center space-x-3 text-xs">
-            <div id="status-db" class="px-2.5 py-1 rounded-lg bg-slate-800/70 border border-slate-700 text-slate-300 flex items-center space-x-1.5">
-                <span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
-                <span class="text-[11px]">DB: Checking...</span>
-            </div>
-
-            <div id="status-maint" class="px-2.5 py-1 rounded-lg bg-slate-800/70 border border-slate-700 text-slate-300 flex items-center space-x-1.5 cursor-pointer hover:border-slate-500 transition" onclick="toggleMaintenance()">
-                <span id="maint-indicator" class="w-2 h-2 rounded-full bg-emerald-400"></span>
-                <span id="maint-text" class="text-[11px]">App: Live</span>
-            </div>
-
-            <button onclick="refreshStatus()" title="Refresh System Status" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition">
-                <svg id="refresh-icon" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-            </button>
-
-            <a href="?action=logout" class="px-3 py-1.5 rounded-lg bg-rose-950/60 hover:bg-rose-900/60 text-rose-300 border border-rose-800/80 text-[11px] font-medium transition">
-                Logout
+        <div class="top-links">
+            <a href="https://kisiitv.co.ke" target="_blank" class="btn-link btn-live">
+                <span>🌐 View Website</span>
+            </a>
+            <a href="https://kisiitv.co.ke/login" target="_blank" class="btn-link btn-live" style="background:rgba(99,102,241,0.15);color:#818cf8;border-color:rgba(99,102,241,0.3);">
+                <span>🔐 Admin Login</span>
+            </a>
+            <a href="?logout=1" class="btn-link btn-logout">
+                <span>Logout</span>
             </a>
         </div>
     </div>
 
-    <!-- Navigation Tabs -->
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 border-t border-slate-800/60 flex space-x-1 text-xs overflow-x-auto">
-        <button class="tab-btn px-4 py-2.5 font-medium text-slate-400 hover:text-white transition active" data-tab="tab-deploy">
-            🚀 Deploy & Actions
-        </button>
-        <button class="tab-btn px-4 py-2.5 font-medium text-slate-400 hover:text-white transition" data-tab="tab-changes">
-            📦 Incoming Commits & Diff <span id="badge-incoming" class="hidden ml-1 px-1.5 py-0.2 rounded-full bg-sky-500 text-white text-[10px]">0</span>
-        </button>
-        <button class="tab-btn px-4 py-2.5 font-medium text-slate-400 hover:text-white transition" data-tab="tab-migrations">
-            🗄️ Database & Migrations
-        </button>
-        <button class="tab-btn px-4 py-2.5 font-medium text-slate-400 hover:text-white transition" data-tab="tab-rollback">
-            ⏪ Rollback Center
-        </button>
-        <button class="tab-btn px-4 py-2.5 font-medium text-slate-400 hover:text-white transition" data-tab="tab-history">
-            📜 History & Audit
-        </button>
-        <button class="tab-btn px-4 py-2.5 font-medium text-slate-400 hover:text-white transition" data-tab="tab-diagnostics">
-            🩺 Server & Logs
-        </button>
-    </div>
-</header>
-
-<main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1 space-y-6 w-full">
-
-    <!-- TAB 1: DEPLOY & ACTIONS -->
-    <div id="tab-deploy" class="tab-content space-y-6">
-        <!-- Hero: 1-Click Automated Deployment Pipeline -->
-        <div class="relative overflow-hidden bg-gradient-to-br from-slate-900 via-slate-900 to-indigo-950/60 border border-indigo-900/40 rounded-2xl p-6 shadow-xl">
-            <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-                <div class="space-y-2 max-w-xl">
-                    <div class="inline-flex items-center space-x-2 px-2.5 py-1 rounded-full bg-indigo-950/80 border border-indigo-800/80 text-[11px] text-indigo-300 font-medium">
-                        <span>⚡</span>
-                        <span>Complete One-Click Pipeline</span>
-                    </div>
-                    <h2 class="text-xl font-extrabold text-white tracking-tight">Production Automated Deployment</h2>
-                    <p class="text-xs text-slate-300 leading-relaxed">
-                        Executes zero-fuss sequential pipeline: <strong>Git Pull</strong> → <strong>Database Migrations</strong> (`migrate --force`) → <strong>Optimize Clear</strong> → <strong>Rebuild Cache</strong> → <strong>Storage Symlink</strong>.
-                    </p>
-                    
-                    <div class="flex flex-wrap items-center gap-4 pt-1 text-xs text-slate-300">
-                        <label class="flex items-center space-x-2 cursor-pointer select-none">
-                            <input type="checkbox" id="deploy-maint" class="rounded bg-slate-950 border-slate-700 text-sky-500 focus:ring-0">
-                            <span>Enable Maintenance Mode during deploy</span>
-                        </label>
-                        <label class="flex items-center space-x-2 cursor-pointer select-none">
-                            <input type="checkbox" id="deploy-cache" checked class="rounded bg-slate-950 border-slate-700 text-sky-500 focus:ring-0">
-                            <span>Rebuild production caches</span>
-                        </label>
-                        <div class="flex items-center space-x-1.5">
-                            <span class="text-slate-400">Branch:</span>
-                            <input type="text" id="deploy-branch" value="main" class="bg-slate-950 border border-slate-700 rounded px-2 py-1 text-xs text-sky-400 font-mono w-24 text-center">
-                        </div>
-                    </div>
-                </div>
-
-                <div class="w-full md:w-auto flex flex-col items-center gap-2">
-                    <button id="btn-full-deploy" onclick="triggerFullDeploy()"
-                        class="w-full md:w-auto px-7 py-4 rounded-xl bg-gradient-to-r from-emerald-500 hover:from-emerald-400 to-teal-600 hover:to-teal-500 text-white font-bold text-sm shadow-xl shadow-emerald-500/25 transition duration-150 flex items-center justify-center space-x-3 glow-emerald">
-                        <span class="text-lg">🚀</span>
-                        <span>Deploy Now</span>
-                    </button>
-                    <span class="text-[11px] text-slate-400">Takes approx 3 - 8 seconds</span>
-                </div>
+    <!-- Live Database Stats -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div>
+                <div class="stat-label">News Articles</div>
+                <div class="stat-value"><?= (int) $stats['articles'] ?></div>
+            </div>
+            <div class="stat-status <?= $stats['articles'] > 0 ? 'status-ok' : 'status-warn' ?>">
+                <?= $stats['articles'] > 0 ? '✓ Seeded' : '⚠️ Empty' ?>
             </div>
         </div>
 
-        <!-- Granular Action Deck -->
+        <div class="stat-card">
+            <div>
+                <div class="stat-label">Categories</div>
+                <div class="stat-value"><?= (int) $stats['categories'] ?></div>
+            </div>
+            <div class="stat-status <?= $stats['categories'] > 0 ? 'status-ok' : 'status-warn' ?>">
+                <?= $stats['categories'] > 0 ? '✓ Ready' : '⚠️ Empty' ?>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div>
+                <div class="stat-label">Admin Users</div>
+                <div class="stat-value"><?= (int) $stats['users'] ?></div>
+            </div>
+            <div class="stat-status <?= $stats['users'] > 0 ? 'status-ok' : 'status-warn' ?>">
+                <?= $stats['users'] > 0 ? '✓ Ready' : '⚠️ Need Admin' ?>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div>
+                <div class="stat-label">Database Tables</div>
+                <div class="stat-value"><?= (int) $stats['migrations'] ?></div>
+            </div>
+            <div class="stat-status <?= $stats['migrations'] > 0 ? 'status-ok' : 'status-warn' ?>">
+                <?= $stats['migrations'] > 0 ? '✓ Migrated' : '⚠️ Pending' ?>
+            </div>
+        </div>
+    </div>
+
+    <!-- Output Box (if an action was executed) -->
+    <?php if ($actionResult) { ?>
+        <div class="alert-box" style="border-color: <?= $actionResult['success'] ? '#10b981' : '#ef4444' ?>;">
+            <div class="alert-title" style="color: <?= $actionResult['success'] ? '#34d399' : '#f87171' ?>;">
+                <?= htmlspecialchars($actionResult['title']) ?>
+            </div>
+            <div class="alert-output"><?= htmlspecialchars($actionResult['output']) ?></div>
+        </div>
+    <?php } ?>
+
+    <!-- HERO: 1-Click Complete Setup (Migrate + Seed Articles) -->
+    <div class="hero-card">
+        <div class="hero-info">
+            <h2><span>⚡</span> Complete Setup: Migrations & Content Seeding</h2>
+            <p>
+                Executes everything needed in a single click: runs database migrations (`migrate --force`), populates all news articles & categories (`db:seed --force`), creates default admin accounts, generates storage symlink, and clears cache.
+            </p>
+        </div>
         <div>
-            <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Granular Operations & Utilities</h3>
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                
-                <!-- Git Pull Only -->
-                <div class="bg-slate-900/70 border border-slate-800 rounded-xl p-4 flex flex-col justify-between hover:border-slate-700 transition">
-                    <div>
-                        <div class="flex items-center justify-between mb-2">
-                            <span class="text-xs font-semibold text-white flex items-center space-x-1.5">
-                                <span>📥</span>
-                                <span>Git Pull</span>
-                            </span>
-                            <span class="text-[10px] text-slate-400 mono">origin</span>
-                        </div>
-                        <p class="text-[11px] text-slate-400 mb-4">Pull code updates from repository without running migrations or caches.</p>
-                    </div>
-                    <button onclick="runAction('git_pull')" class="w-full py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium rounded-lg transition">
-                        Pull Changes
-                    </button>
-                </div>
-
-                <!-- Run Migrations Only -->
-                <div class="bg-slate-900/70 border border-slate-800 rounded-xl p-4 flex flex-col justify-between hover:border-slate-700 transition">
-                    <div>
-                        <div class="flex items-center justify-between mb-2">
-                            <span class="text-xs font-semibold text-white flex items-center space-x-1.5">
-                                <span>🗄️</span>
-                                <span>Run Migrations</span>
-                            </span>
-                            <span class="text-[10px] text-amber-400 mono">--force</span>
-                        </div>
-                        <p class="text-[11px] text-slate-400 mb-4">Executes any pending database schema migrations safely in-process.</p>
-                    </div>
-                    <button onclick="runAction('migrate')" class="w-full py-2 bg-indigo-950/80 hover:bg-indigo-900/80 text-indigo-300 border border-indigo-800/80 text-xs font-medium rounded-lg transition">
-                        Run Migrations
-                    </button>
-                </div>
-
-                <!-- Seed Database Content -->
-                <div class="bg-slate-900/70 border border-slate-800 rounded-xl p-4 flex flex-col justify-between hover:border-slate-700 transition">
-                    <div>
-                        <div class="flex items-center justify-between mb-2">
-                            <span class="text-xs font-semibold text-white flex items-center space-x-1.5">
-                                <span>🌱</span>
-                                <span>Seed Content</span>
-                            </span>
-                            <span class="text-[10px] text-emerald-400 mono">db:seed</span>
-                        </div>
-                        <p class="text-[11px] text-slate-400 mb-4">Populates news articles, editorial categories, site settings, and admin users.</p>
-                    </div>
-                    <button onclick="runAction('db_seed')" class="w-full py-2 bg-emerald-950/80 hover:bg-emerald-900/80 text-emerald-300 border border-emerald-800/80 text-xs font-medium rounded-lg transition">
-                        🌱 Seed Content Now
-                    </button>
-                </div>
-
-                <!-- Clear Caches -->
-                <div class="bg-slate-900/70 border border-slate-800 rounded-xl p-4 flex flex-col justify-between hover:border-slate-700 transition">
-                    <div>
-                        <div class="flex items-center justify-between mb-2">
-                            <span class="text-xs font-semibold text-white flex items-center space-x-1.5">
-                                <span>🧹</span>
-                                <span>Clear All Caches</span>
-                            </span>
-                            <span class="text-[10px] text-slate-400 mono">optimize:clear</span>
-                        </div>
-                        <p class="text-[11px] text-slate-400 mb-4">Flushes config, route, view, and compiled application caches immediately.</p>
-                    </div>
-                    <button onclick="runAction('cache_clear')" class="w-full py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium rounded-lg transition">
-                        Flush Cache
-                    </button>
-                </div>
-
-                <!-- Maintenance Mode -->
-                <div class="bg-slate-900/70 border border-slate-800 rounded-xl p-4 flex flex-col justify-between hover:border-slate-700 transition">
-                    <div>
-                        <div class="flex items-center justify-between mb-2">
-                            <span class="text-xs font-semibold text-white flex items-center space-x-1.5">
-                                <span>🛡️</span>
-                                <span>Maintenance Mode</span>
-                            </span>
-                            <span id="card-maint-status" class="text-[10px] text-emerald-400 mono">LIVE</span>
-                        </div>
-                        <p class="text-[11px] text-slate-400 mb-4">Toggle application maintenance mode (`php artisan down` / `up`).</p>
-                    </div>
-                    <button onclick="toggleMaintenance()" class="w-full py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium rounded-lg transition">
-                        Toggle Mode
-                    </button>
-                </div>
-
-                <!-- Create Storage Link -->
-                <div class="bg-slate-900/70 border border-slate-800 rounded-xl p-4 flex flex-col justify-between hover:border-slate-700 transition">
-                    <div>
-                        <div class="flex items-center justify-between mb-2">
-                            <span class="text-xs font-semibold text-white flex items-center space-x-1.5">
-                                <span>🔗</span>
-                                <span>Storage Symlink</span>
-                            </span>
-                            <span class="text-[10px] text-slate-400 mono">public/storage</span>
-                        </div>
-                        <p class="text-[11px] text-slate-400 mb-4">Links `storage/app/public` to `public/storage` for uploads and images.</p>
-                    </div>
-                    <button onclick="runAction('storage_link')" class="w-full py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium rounded-lg transition">
-                        Link Storage
-                    </button>
-                </div>
-
-                <!-- Git Stash -->
-                <div class="bg-slate-900/70 border border-slate-800 rounded-xl p-4 flex flex-col justify-between hover:border-slate-700 transition">
-                    <div>
-                        <div class="flex items-center justify-between mb-2">
-                            <span class="text-xs font-semibold text-white flex items-center space-x-1.5">
-                                <span>📦</span>
-                                <span>Git Stash</span>
-                            </span>
-                            <span class="text-[10px] text-slate-400 mono">git stash</span>
-                        </div>
-                        <p class="text-[11px] text-slate-400 mb-4">Temporarily stash away local modified files if git pull reports merge conflicts.</p>
-                    </div>
-                    <button onclick="runAction('git_stash')" class="w-full py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium rounded-lg transition">
-                        Stash Changes
-                    </button>
-                </div>
-
-                <!-- Git Status -->
-                <div class="bg-slate-900/70 border border-slate-800 rounded-xl p-4 flex flex-col justify-between hover:border-slate-700 transition">
-                    <div>
-                        <div class="flex items-center justify-between mb-2">
-                            <span class="text-xs font-semibold text-white flex items-center space-x-1.5">
-                                <span>🔍</span>
-                                <span>Git Working Tree</span>
-                            </span>
-                            <span class="text-[10px] text-slate-400 mono">git status</span>
-                        </div>
-                        <p class="text-[11px] text-slate-400 mb-4">Inspect local repository working directory state and uncommitted files.</p>
-                    </div>
-                    <button onclick="runAction('git_status')" class="w-full py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium rounded-lg transition">
-                        Check Status
-                    </button>
-                </div>
-
-                <!-- Cache Optimization -->
-                <div class="bg-slate-900/70 border border-slate-800 rounded-xl p-4 flex flex-col justify-between hover:border-slate-700 transition">
-                    <div>
-                        <div class="flex items-center justify-between mb-2">
-                            <span class="text-xs font-semibold text-white flex items-center space-x-1.5">
-                                <span>⚡</span>
-                                <span>Rebuild Caches</span>
-                            </span>
-                            <span class="text-[10px] text-slate-400 mono">routes & config</span>
-                        </div>
-                        <p class="text-[11px] text-slate-400 mb-4">Compiles config, routes, and views into cached files for fastest performance.</p>
-                    </div>
-                    <button onclick="runAction('cache_all')" class="w-full py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium rounded-lg transition">
-                        Cache Everything
-                    </button>
-                </div>
-
-            </div>
-        </div>
-    </div>
-
-    <!-- TAB 2: INCOMING COMMITS & DIFF TRACKER -->
-    <div id="tab-changes" class="tab-content hidden space-y-6">
-        <div class="bg-slate-900/80 border border-slate-800 rounded-xl p-5">
-            <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4 pb-4 border-b border-slate-800">
-                <div>
-                    <h3 class="text-base font-bold text-white flex items-center space-x-2">
-                        <span>📦</span>
-                        <span>Track Remote Changes & Incoming Commits</span>
-                    </h3>
-                    <p class="text-xs text-slate-400 mt-1">Fetches remote origin and inspects all new commits ahead before you pull.</p>
-                </div>
-                <button onclick="checkRemoteUpdates()" class="px-4 py-2 bg-sky-600 hover:bg-sky-500 text-white rounded-lg text-xs font-medium transition flex items-center space-x-2">
-                    <span>🔄 Fetch Origin & Check Updates</span>
+            <form method="POST" action="">
+                <input type="hidden" name="operation" value="full_setup">
+                <button type="submit" class="btn-hero" onclick="return confirm('Run complete database setup and seed content now?');">
+                    <span>🚀 Run Full Setup & Seed Content</span>
                 </button>
-            </div>
-
-            <!-- Update Summary Container -->
-            <div id="changes-summary" class="space-y-4">
-                <div class="text-center py-8 text-slate-500 text-xs">
-                    Click "Fetch Origin & Check Updates" to check for pending commits from GitHub/remote repository.
-                </div>
-            </div>
+            </form>
         </div>
     </div>
 
-    <!-- TAB 3: DATABASE & MIGRATIONS -->
-    <div id="tab-migrations" class="tab-content hidden space-y-6">
-        <div class="bg-slate-900/80 border border-slate-800 rounded-xl p-5">
-            <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4 pb-4 border-b border-slate-800">
-                <div>
-                    <h3 class="text-base font-bold text-white flex items-center space-x-2">
-                        <span>🗄️</span>
-                        <span>Database Migrations Manager</span>
-                    </h3>
-                    <p class="text-xs text-slate-400 mt-1">Inspect executed vs pending migrations and execute schema changes.</p>
+    <!-- Two Column Deck -->
+    <div class="two-cols">
+        <!-- Card 1: Admin Account Setup & Reset -->
+        <div class="card">
+            <div class="card-header">
+                <h3><span>👤</span> Admin Login Credentials</h3>
+                <span style="font-size:11px;color:#94a3b8;">Super Administrator</span>
+            </div>
+
+            <div class="creds-box">
+                <div style="font-weight:700;color:#fff;margin-bottom:6px;">Default Newsroom Credentials:</div>
+                <div class="creds-row">
+                    <span>Email:</span>
+                    <strong>superadmin@kisiitv.com</strong>
                 </div>
-                <div class="flex items-center space-x-2">
-                    <button onclick="runAction('migrate_status')" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-medium transition">
-                        View Migration Status
-                    </button>
-                    <button onclick="runAction('migrate')" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-medium transition">
-                        Run Migrations (--force)
-                    </button>
-                    <button onclick="runAction('db_seed')" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-medium transition">
-                        🌱 Seed Database Content
-                    </button>
+                <div class="creds-row">
+                    <span>Password:</span>
+                    <strong>Password123!</strong>
+                </div>
+                <div style="margin-top:6px;font-size:11px;color:#94a3b8;">
+                    Login URL: <a href="https://kisiitv.co.ke/login" target="_blank" style="color:#38bdf8;">kisiitv.co.ke/login</a>
                 </div>
             </div>
 
-            <div id="migrations-output" class="text-xs text-slate-400 font-mono bg-black/40 p-4 rounded-xl border border-slate-800 whitespace-pre-wrap max-h-96 overflow-y-auto">
-Click "View Migration Status" or "Run Migrations" to inspect your database state.
-            </div>
+            <h4 style="font-size:13px;font-weight:700;color:#ffffff;margin-bottom:12px;">Create or Reset Super Admin Account</h4>
+            <form method="POST" action="">
+                <input type="hidden" name="operation" value="create_admin">
+                <div class="form-group">
+                    <label>Admin Full Name</label>
+                    <input type="text" name="admin_name" value="Executive Super Admin" required class="input-text">
+                </div>
+                <div class="form-group">
+                    <label>Admin Email Address</label>
+                    <input type="email" name="admin_email" value="superadmin@kisiitv.com" required class="input-text">
+                </div>
+                <div class="form-group">
+                    <label>New Password</label>
+                    <input type="text" name="admin_password" value="Password123!" required class="input-text">
+                </div>
+                <button type="submit" class="btn btn-indigo" style="margin-top:8px;">
+                    <span>Save / Reset Admin Account</span>
+                </button>
+            </form>
         </div>
-    </div>
 
-    <!-- TAB 4: ROLLBACK CENTER -->
-    <div id="tab-rollback" class="tab-content hidden space-y-6">
-        <div class="bg-rose-950/20 border border-rose-900/40 rounded-2xl p-6">
-            <div class="flex items-center space-x-3 mb-2">
-                <span class="text-xl">⚠️</span>
-                <h3 class="text-lg font-bold text-rose-300">Rollback Center & Emergency Recovery</h3>
+        <!-- Card 2: Granular Utilities -->
+        <div class="card">
+            <div class="card-header">
+                <h3><span>🛠️</span> Individual Operations</h3>
+                <span style="font-size:11px;color:#94a3b8;">On-Demand</span>
             </div>
-            <p class="text-xs text-slate-300 mb-6">
-                Use these tools if a deployment caused an error or broken state. You can revert database migrations, reset git code to a previous commit, or perform both.
+
+            <p style="font-size:12px;color:#94a3b8;margin-bottom:16px;">
+                Run specific commands independently if you need to refresh caches, seed articles, or rerun migrations:
             </p>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <!-- Migration Rollback -->
-                <div class="bg-slate-900/80 border border-slate-800 rounded-xl p-5 space-y-4">
-                    <div class="flex items-center justify-between">
-                        <h4 class="text-sm font-bold text-white flex items-center space-x-2">
-                            <span>🗄️</span>
-                            <span>Database Migration Rollback</span>
-                        </h4>
-                        <span class="text-[10px] text-amber-400 mono">migrate:rollback</span>
-                    </div>
-                    <p class="text-xs text-slate-400">
-                        Rolls back the last batch of database migrations.
-                    </p>
-                    <div class="flex items-center space-x-3">
-                        <label class="text-xs text-slate-300">Steps to revert:</label>
-                        <select id="rollback-steps" class="bg-slate-950 border border-slate-700 rounded px-3 py-1.5 text-xs text-white">
-                            <option value="1">1 Batch / Step (Recommended)</option>
-                            <option value="2">2 Batches / Steps</option>
-                            <option value="3">3 Batches / Steps</option>
-                        </select>
-                    </div>
-                    <button onclick="triggerMigrateRollback()" class="w-full py-2.5 bg-amber-600 hover:bg-amber-500 text-white text-xs font-semibold rounded-lg transition shadow-md shadow-amber-600/20">
-                        Rollback Database Migrations
+            <div class="btn-grid" style="margin-bottom:12px;">
+                <form method="POST" action="">
+                    <input type="hidden" name="operation" value="seed">
+                    <button type="submit" class="btn btn-secondary" onclick="return confirm('Seed news articles and categories?');">
+                        <span>🌱 Seed Articles</span>
                     </button>
-                </div>
+                </form>
 
-                <!-- Code Rollback (Git Reset) -->
-                <div class="bg-slate-900/80 border border-slate-800 rounded-xl p-5 space-y-4">
-                    <div class="flex items-center justify-between">
-                        <h4 class="text-sm font-bold text-white flex items-center space-x-2">
-                            <span>⏪</span>
-                            <span>Code Rollback (Git Reset)</span>
-                        </h4>
-                        <span class="text-[10px] text-rose-400 mono">git reset --hard</span>
-                    </div>
-                    <p class="text-xs text-slate-400">
-                        Reverts your working directory files to a chosen previous commit and automatically clears cache.
-                    </p>
-                    <div>
-                        <label class="block text-xs text-slate-300 mb-1">Select previous commit:</label>
-                        <select id="rollback-commit-select" class="w-full bg-slate-950 border border-slate-700 rounded px-3 py-2 text-xs text-sky-300 font-mono">
-                            <option value="">Loading recent commits...</option>
-                        </select>
-                    </div>
-                    <button onclick="triggerGitRollback()" class="w-full py-2.5 bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold rounded-lg transition shadow-md shadow-rose-600/20">
-                        Rollback Code to Selected Commit
+                <form method="POST" action="">
+                    <input type="hidden" name="operation" value="migrate">
+                    <button type="submit" class="btn btn-secondary" onclick="return confirm('Run database migrations?');">
+                        <span>🗄️ Run Migrations</span>
                     </button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- TAB 5: DEPLOYMENT HISTORY & AUDIT -->
-    <div id="tab-history" class="tab-content hidden space-y-6">
-        <div class="bg-slate-900/80 border border-slate-800 rounded-xl p-5">
-            <div class="flex items-center justify-between mb-4 pb-4 border-b border-slate-800">
-                <div>
-                    <h3 class="text-base font-bold text-white flex items-center space-x-2">
-                        <span>📜</span>
-                        <span>Deployment & Operations History</span>
-                    </h3>
-                    <p class="text-xs text-slate-400 mt-1">Audit log of all deployments, migrations, and operations run on this site.</p>
-                </div>
-                <button onclick="loadHistory()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs transition">
-                    Refresh Log
-                </button>
+                </form>
             </div>
 
-            <div class="overflow-x-auto">
-                <table class="w-full text-left text-xs text-slate-300">
-                    <thead class="bg-slate-950/70 text-slate-400 font-semibold border-b border-slate-800">
-                        <tr>
-                            <th class="py-3 px-4">Date / Time</th>
-                            <th class="py-3 px-4">Action</th>
-                            <th class="py-3 px-4">Status</th>
-                            <th class="py-3 px-4">Commit Range</th>
-                            <th class="py-3 px-4">Duration</th>
-                            <th class="py-3 px-4">Operator IP</th>
-                            <th class="py-3 px-4 text-right">Details</th>
-                        </tr>
-                    </thead>
-                    <tbody id="history-tbody" class="divide-y divide-slate-800/60 font-mono text-[11px]">
-                        <tr>
-                            <td colspan="7" class="py-8 text-center text-slate-500 font-sans text-xs">Loading history...</td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-
-    <!-- TAB 6: SERVER DIAGNOSTICS & LOGS -->
-    <div id="tab-diagnostics" class="tab-content hidden space-y-6">
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <!-- Server Diagnostics -->
-            <div class="bg-slate-900/80 border border-slate-800 rounded-xl p-5 space-y-4">
-                <h3 class="text-sm font-bold text-white flex items-center space-x-2">
-                    <span>🩺</span>
-                    <span>Shared Hosting Environment Diagnostics</span>
-                </h3>
-                <div id="diag-container" class="space-y-2.5 text-xs">
-                    <div class="text-slate-500">Inspecting server environment...</div>
-                </div>
-            </div>
-
-            <!-- Laravel Error Log -->
-            <div class="bg-slate-900/80 border border-slate-800 rounded-xl p-5 space-y-4 flex flex-col">
-                <div class="flex items-center justify-between">
-                    <h3 class="text-sm font-bold text-white flex items-center space-x-2">
-                        <span>📋</span>
-                        <span>Latest Laravel Log Entries</span>
-                    </h3>
-                    <button onclick="loadLaravelLogs()" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] rounded transition">
-                        Refresh Log
+            <div class="btn-grid" style="margin-bottom:16px;">
+                <form method="POST" action="">
+                    <input type="hidden" name="operation" value="storage_link">
+                    <button type="submit" class="btn btn-secondary">
+                        <span>🔗 Storage Link</span>
                     </button>
-                </div>
-                <div id="laravel-logs-container" class="flex-1 bg-black/60 p-3 rounded-lg border border-slate-800 text-[11px] font-mono text-slate-300 max-h-80 overflow-y-auto whitespace-pre-wrap">
-Loading logs...
+                </form>
+
+                <form method="POST" action="">
+                    <input type="hidden" name="operation" value="cache_clear">
+                    <button type="submit" class="btn btn-secondary">
+                        <span>🧹 Clear Caches</span>
+                    </button>
+                </form>
+            </div>
+
+            <div style="background:#020617;border:1px solid #1e293b;border-radius:10px;padding:12px;font-size:11px;color:#94a3b8;">
+                <div style="font-weight:700;color:#e2e8f0;margin-bottom:4px;">Direct Seed Link (Bookmark):</div>
+                <div style="word-break:break-all;color:#38bdf8;font-family:ui-monospace,monospace;">
+                    https://kisiitv.co.ke/deploy.php?run=full&key=<?= urlencode($secretKey) ?>
                 </div>
             </div>
         </div>
     </div>
-
-    <!-- LIVE OPERATION TERMINAL / OUTPUT CONSOLE (Always Visible at bottom) -->
-    <div class="terminal-window shadow-2xl overflow-hidden flex flex-col">
-        <!-- Terminal Header -->
-        <div class="bg-slate-900 px-4 py-2.5 border-b border-slate-800 flex items-center justify-between text-xs">
-            <div class="flex items-center space-x-2">
-                <div class="flex space-x-1.5">
-                    <span class="w-3 h-3 rounded-full bg-rose-500/80 inline-block"></span>
-                    <span class="w-3 h-3 rounded-full bg-amber-500/80 inline-block"></span>
-                    <span class="w-3 h-3 rounded-full bg-emerald-500/80 inline-block"></span>
-                </div>
-                <span class="text-slate-400 font-mono ml-2 text-[11px]">Deployer Console & Live Logs</span>
-                <span id="terminal-spinner" class="hidden text-sky-400 spin">⟳</span>
-            </div>
-
-            <div class="flex items-center space-x-2 text-[11px]">
-                <button onclick="copyTerminalOutput()" class="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 transition">
-                    📋 Copy Log
-                </button>
-                <button onclick="clearTerminal()" class="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 transition">
-                    Clear Console
-                </button>
-            </div>
-        </div>
-
-        <!-- Terminal Output Area -->
-        <div id="terminal-body" class="p-4 mono text-[12px] text-slate-200 h-64 overflow-y-auto leading-relaxed whitespace-pre-wrap select-text">
-<span class="text-sky-400 font-bold">🚀 Advanced Web Deployment & Operations Manager Initialized.</span>
-<span class="text-slate-500">Ready to execute actions. Choose an operation above or click "Deploy Now".</span>
-        </div>
-    </div>
-
-</main>
-
-<footer class="border-t border-slate-800/60 py-4 text-center text-[11px] text-slate-500">
-    <span><?= htmlspecialchars($envConfig['APP_NAME'] ?? 'Laravel') ?> • Web Deployer v<?= DEPLOYER_VERSION ?> • Running on PHP <?= PHP_VERSION ?></span>
-</footer>
-
-<!-- JAVASCRIPT APP LOGIC -->
-<script>
-const CSRF_TOKEN = <?= json_encode($_SESSION['deployer_csrf'] ?? '') ?>;
-let isBusy = false;
-
-// Tab Switching
-document.querySelectorAll('.tab-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-        document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
-        btn.classList.add('active');
-        const tabId = btn.getAttribute('data-tab');
-        document.getElementById(tabId).classList.remove('hidden');
-
-        if (tabId === 'tab-changes') checkRemoteUpdates(false);
-        if (tabId === 'tab-rollback') loadRecentCommitsForRollback();
-        if (tabId === 'tab-history') loadHistory();
-        if (tabId === 'tab-diagnostics') { loadDiagnostics(); loadLaravelLogs(); }
-    });
-});
-
-// Terminal Logging Helper
-function logToTerminal(title, content, type = 'info') {
-    const term = document.getElementById('terminal-body');
-    const time = new Date().toLocaleTimeString();
-    
-    let colorClass = 'text-slate-300';
-    if (type === 'success') colorClass = 'text-emerald-400';
-    if (type === 'error') colorClass = 'text-rose-400 font-bold';
-    if (type === 'warn') colorClass = 'text-amber-400';
-    if (type === 'command') colorClass = 'text-sky-400 font-semibold';
-
-    const header = `<div class="mt-3 pt-2 border-t border-slate-800/80 text-[11px] text-slate-500 font-mono">[${time}] ${title}</div>`;
-    const body = `<div class="${colorClass}">${escapeHtml(content)}</div>`;
-    term.innerHTML += header + body;
-    term.scrollTop = term.scrollHeight;
-}
-
-function clearTerminal() {
-    document.getElementById('terminal-body').innerHTML = '<span class="text-slate-500 font-mono">// Console cleared.</span>';
-}
-
-function copyTerminalOutput() {
-    const text = document.getElementById('terminal-body').innerText;
-    navigator.clipboard.writeText(text).then(() => {
-        alert('Console logs copied to clipboard!');
-    });
-}
-
-function escapeHtml(text) {
-    if (!text) return '';
-    return text.toString()
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
-}
-
-function setBusy(state) {
-    isBusy = state;
-    const spinner = document.getElementById('terminal-spinner');
-    const deployBtn = document.getElementById('btn-full-deploy');
-    if (spinner) spinner.classList.toggle('hidden', !state);
-    if (deployBtn) {
-        deployBtn.disabled = state;
-        deployBtn.classList.toggle('opacity-50', state);
-    }
-}
-
-// API Post Helper
-async function postAction(action, data = {}) {
-    setBusy(true);
-    const formData = new FormData();
-    formData.append('action', action);
-    formData.append('csrf_token', CSRF_TOKEN);
-    for (const [key, val] of Object.entries(data)) {
-        formData.append(key, val);
-    }
-
-    try {
-        const response = await fetch('', {
-            method: 'POST',
-            body: formData
-        });
-        const json = await response.json();
-        setBusy(false);
-        return json;
-    } catch (err) {
-        setBusy(false);
-        return { success: false, error: 'Network / Server Error: ' + err.message };
-    }
-}
-
-// Refresh Top Status Bar
-async function refreshStatus() {
-    const icon = document.getElementById('refresh-icon');
-    if (icon) icon.classList.add('spin');
-
-    const res = await postAction('get_status');
-    if (icon) icon.classList.remove('spin');
-
-    if (res.success && res.data) {
-        const d = res.data;
-        document.getElementById('header-branch').innerText = d.branch;
-        document.getElementById('header-commit').innerText = d.commit.short + ' - ' + d.commit.subject;
-        
-        // DB status
-        const dbPill = document.getElementById('status-db');
-        if (d.db_ok) {
-            dbPill.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-400"></span><span class="text-[11px] text-emerald-300">DB: Connected</span>`;
-        } else {
-            dbPill.innerHTML = `<span class="w-2 h-2 rounded-full bg-rose-400"></span><span class="text-[11px] text-rose-300" title="${escapeHtml(d.db_message)}">DB: Error</span>`;
-        }
-
-        // Maintenance status
-        updateMaintUi(d.maintenance);
-    }
-}
-
-function updateMaintUi(isDown) {
-    const indicator = document.getElementById('maint-indicator');
-    const text = document.getElementById('maint-text');
-    const cardStatus = document.getElementById('card-maint-status');
-
-    if (isDown) {
-        indicator.className = 'w-2 h-2 rounded-full bg-amber-400 animate-pulse';
-        text.innerText = 'App: Down (503)';
-        if (cardStatus) {
-            cardStatus.className = 'text-[10px] text-amber-400 mono';
-            cardStatus.innerText = 'MAINTENANCE';
-        }
-    } else {
-        indicator.className = 'w-2 h-2 rounded-full bg-emerald-400';
-        text.innerText = 'App: Live';
-        if (cardStatus) {
-            cardStatus.className = 'text-[10px] text-emerald-400 mono';
-            cardStatus.innerText = 'LIVE';
-        }
-    }
-}
-
-// Generic Run Action Handler
-async function runAction(action, extraData = {}) {
-    if (isBusy) {
-        alert('Another deployment operation is currently in progress. Please wait.');
-        return;
-    }
-    logToTerminal(`Executing action: ${action}...`, 'Starting...', 'command');
-    const res = await postAction(action, extraData);
-    
-    if (res.success) {
-        logToTerminal(`Action Completed: ${action} (${res.duration || 0}s)`, res.output || res.message || 'Success', 'success');
-        refreshStatus();
-    } else {
-        logToTerminal(`Action Failed: ${action}`, res.error || res.output || 'Unknown error occurred', 'error');
-    }
-}
-
-// Full Automated Deploy
-async function triggerFullDeploy() {
-    if (isBusy) return;
-    if (!confirm('Start Full Automated Deployment now? This will pull latest code and run migrations.')) {
-        return;
-    }
-
-    const branch = document.getElementById('deploy-branch').value.trim() || 'main';
-    const withMaint = document.getElementById('deploy-maint').checked ? '1' : '';
-    const withCache = document.getElementById('deploy-cache').checked ? '1' : '';
-
-    logToTerminal('DEPLOY PIPELINE', `Triggering pipeline for branch '${branch}'...`, 'command');
-    
-    const res = await postAction('full_deploy', {
-        branch: branch,
-        with_maintenance: withMaint,
-        with_cache: withCache
-    });
-
-    if (res.success) {
-        logToTerminal('DEPLOY PIPELINE COMPLETED', res.output, 'success');
-        refreshStatus();
-    } else {
-        logToTerminal('DEPLOY PIPELINE FAILED', res.output || res.error, 'error');
-    }
-}
-
-// Maintenance Mode Toggle
-async function toggleMaintenance() {
-    const res = await postAction('maintenance_toggle');
-    if (res.success) {
-        logToTerminal('Maintenance Mode', res.message || res.output, 'warn');
-        refreshStatus();
-    } else {
-        logToTerminal('Maintenance Error', res.error, 'error');
-    }
-}
-
-// Check Remote Updates & Incoming Commits
-async function checkRemoteUpdates(verbose = true) {
-    const summary = document.getElementById('changes-summary');
-    summary.innerHTML = '<div class="py-6 text-center text-xs text-sky-400">Fetching remote repository (git fetch origin)...</div>';
-
-    const branch = document.getElementById('deploy-branch')?.value.trim() || 'main';
-    const res = await postAction('check_updates', { branch: branch });
-
-    if (!res.success) {
-        summary.innerHTML = `<div class="p-4 bg-rose-950/60 border border-rose-800 rounded-xl text-xs text-rose-300">
-            <strong>Fetch Failed:</strong> ${escapeHtml(res.error || 'Unable to fetch remote branch')}
-        </div>`;
-        return;
-    }
-
-    const d = res.data;
-    const badge = document.getElementById('badge-incoming');
-    if (badge) {
-        badge.innerText = d.incoming_count;
-        badge.classList.toggle('hidden', d.incoming_count === 0);
-    }
-
-    let html = '';
-
-    // Status Banner
-    if (d.incoming_count === 0) {
-        html += `<div class="p-4 bg-emerald-950/40 border border-emerald-800/60 rounded-xl text-xs text-emerald-300 flex items-center justify-between">
-            <span class="flex items-center space-x-2">
-                <span>✅</span>
-                <span>Your local branch is completely up-to-date with <strong>origin/${escapeHtml(d.branch)}</strong>. No new commits found.</span>
-            </span>
-            <span class="font-mono text-[11px] text-emerald-400">0 pending</span>
-        </div>`;
-    } else {
-        html += `<div class="p-4 bg-sky-950/50 border border-sky-800 rounded-xl text-xs text-sky-200 flex items-center justify-between">
-            <div>
-                <span class="font-bold text-sky-300 text-sm">🎉 ${d.incoming_count} New Commit(s) Ready to Pull!</span>
-                <p class="text-[11px] text-slate-300 mt-0.5">These changes have been committed to GitHub/remote and will be pulled upon deployment.</p>
-            </div>
-            <button onclick="triggerFullDeploy()" class="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-white font-bold rounded-lg text-xs shadow-lg transition">
-                🚀 Deploy Changes Now
-            </button>
-        </div>`;
-
-        // Commits List
-        html += `<div class="space-y-2 mt-4">
-            <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Incoming Commits:</h4>
-            <div class="divide-y divide-slate-800 border border-slate-800 rounded-xl bg-slate-950/60 overflow-hidden">`;
-
-        d.incoming_commits.forEach(c => {
-            html += `<div class="p-3 text-xs flex items-center justify-between hover:bg-slate-900/50 transition">
-                <div class="space-y-0.5">
-                    <div class="text-white font-medium">${escapeHtml(c.subject)}</div>
-                    <div class="text-[11px] text-slate-400">By <strong>${escapeHtml(c.author)}</strong> • ${escapeHtml(c.date)}</div>
-                </div>
-                <span class="mono text-[11px] bg-slate-800 px-2 py-0.5 rounded text-sky-400">${escapeHtml(c.short)}</span>
-            </div>`;
-        });
-
-        html += `</div></div>`;
-    }
-
-    // Changed files diff stat
-    if (d.diff_stat) {
-        html += `<div class="mt-4">
-            <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Files Changed Summary:</h4>
-            <pre class="bg-black/50 p-3 rounded-xl border border-slate-800 text-[11px] mono text-slate-300 overflow-x-auto">${escapeHtml(d.diff_stat)}</pre>
-        </div>`;
-    }
-
-    // Local uncommitted files warning
-    if (d.has_local_changes) {
-        html += `<div class="mt-4 p-4 bg-amber-950/40 border border-amber-800/60 rounded-xl text-xs text-amber-300">
-            <div class="flex items-center justify-between mb-2">
-                <strong>⚠️ Warning: Local Uncommitted Files Detected</strong>
-                <button onclick="runAction('git_stash')" class="px-2.5 py-1 bg-amber-700 hover:bg-amber-600 text-white rounded text-[11px] font-semibold transition">
-                    Stash Local Changes
-                </button>
-            </div>
-            <p class="text-[11px] text-slate-300 mb-2">If pulling fails with merge conflicts, use "Git Stash" to stash these files before deploying:</p>
-            <pre class="bg-black/40 p-2.5 rounded border border-amber-900/40 text-[11px] font-mono text-amber-200">${escapeHtml(d.local_changes)}</pre>
-        </div>`;
-    }
-
-    summary.innerHTML = html;
-    if (verbose) logToTerminal('Remote Updates Check', `Found ${d.incoming_count} pending commit(s).`, 'info');
-}
-
-// Load Recent Commits for Rollback Dropdown
-async function loadRecentCommitsForRollback() {
-    const select = document.getElementById('rollback-commit-select');
-    select.innerHTML = '<option value="">Loading recent commits...</option>';
-
-    const res = await postAction('git_log');
-    if (res.success && res.commits) {
-        let options = '';
-        res.commits.forEach((c, idx) => {
-            const prefix = (idx === 0) ? '(Current HEAD) ' : '';
-            options += `<option value="${c.hash}" ${idx === 1 ? 'selected' : ''}>
-                ${prefix}${c.short} — ${c.subject.substring(0, 45)} (${c.date})
-            </option>`;
-        });
-        select.innerHTML = options;
-    }
-}
-
-// Trigger Migration Rollback
-async function triggerMigrateRollback() {
-    const steps = document.getElementById('rollback-steps').value;
-    if (!confirm(`Are you sure you want to rollback ${steps} database migration batch(es)?`)) {
-        return;
-    }
-    await runAction('migrate_rollback', { step: steps });
-}
-
-// Trigger Git Rollback
-async function triggerGitRollback() {
-    const select = document.getElementById('rollback-commit-select');
-    const commit = select.value;
-    if (!commit) {
-        alert('Please select a valid commit to rollback to.');
-        return;
-    }
-    const text = select.options[select.selectedIndex].text;
-    if (!confirm(`CRITICAL WARNING: This will reset all code files to:\n\n${text}\n\nAre you sure you want to proceed?`)) {
-        return;
-    }
-    await runAction('git_rollback', { target_commit: commit });
-}
-
-// Load Deployment History
-async function loadHistory() {
-    const tbody = document.getElementById('history-tbody');
-    tbody.innerHTML = '<tr><td colspan="7" class="py-8 text-center text-slate-500 font-sans text-xs">Loading history...</td></tr>';
-
-    const res = await postAction('get_history');
-    if (res.success && res.history) {
-        if (res.history.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="7" class="py-8 text-center text-slate-500 font-sans text-xs">No deployments logged yet.</td></tr>';
-            return;
-        }
-
-        let rows = '';
-        res.history.forEach((h, index) => {
-            const isSuccess = (h.status === 'success');
-            const statusBadge = isSuccess
-                ? '<span class="px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-400 border border-emerald-800 text-[10px]">Success</span>'
-                : '<span class="px-2 py-0.5 rounded-full bg-rose-950 text-rose-400 border border-rose-800 text-[10px]">Failed</span>';
-
-            const commitRange = (h.commit_before && h.commit_after)
-                ? `${h.commit_before} → ${h.commit_after}`
-                : (h.commit_before || '—');
-
-            rows += `
-                <tr class="hover:bg-slate-900/40 transition">
-                    <td class="py-3 px-4 font-sans text-slate-300">${escapeHtml(h.datetime)}</td>
-                    <td class="py-3 px-4 font-semibold text-white font-sans">${escapeHtml(h.action)}</td>
-                    <td class="py-3 px-4 font-sans">${statusBadge}</td>
-                    <td class="py-3 px-4 text-sky-400">${escapeHtml(commitRange)}</td>
-                    <td class="py-3 px-4 text-slate-400">${h.duration || 0}s</td>
-                    <td class="py-3 px-4 text-slate-400 font-sans">${escapeHtml(h.ip || '—')}</td>
-                    <td class="py-3 px-4 text-right font-sans">
-                        <button onclick="showHistoryDetail(${index})" class="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px]">
-                            View Log
-                        </button>
-                    </td>
-                </tr>
-            `;
-        });
-        tbody.innerHTML = rows;
-        window.deployHistoryData = res.history;
-    }
-}
-
-function showHistoryDetail(index) {
-    if (!window.deployHistoryData || !window.deployHistoryData[index]) return;
-    const item = window.deployHistoryData[index];
-    logToTerminal(`AUDIT LOG [${item.action} at ${item.datetime}]`, item.output, item.status === 'success' ? 'success' : 'error');
-}
-
-// Load Diagnostics
-async function loadDiagnostics() {
-    const container = document.getElementById('diag-container');
-    const res = await postAction('get_diagnostics');
-
-    if (res.success && res.data) {
-        const d = res.data;
-        const checkIcon = '<span class="text-emerald-400 font-bold">✓ Ready</span>';
-        const failIcon = '<span class="text-rose-400 font-bold">✗ Blocked</span>';
-
-        container.innerHTML = `
-            <div class="p-3 bg-slate-950/80 rounded-lg border border-slate-800 space-y-1.5">
-                <div class="flex justify-between">
-                    <span class="text-slate-400">PHP Version:</span>
-                    <strong class="text-white">${escapeHtml(d.php_version)}</strong>
-                </div>
-                <div class="flex justify-between">
-                    <span class="text-slate-400">Server Software:</span>
-                    <span class="text-slate-200">${escapeHtml(d.server_software)}</span>
-                </div>
-                <div class="flex justify-between">
-                    <span class="text-slate-400">Git Binary:</span>
-                    <span class="text-slate-200 font-mono">${escapeHtml(d.git_version)}</span>
-                </div>
-            </div>
-
-            <div class="p-3 bg-slate-950/80 rounded-lg border border-slate-800 space-y-1.5">
-                <div class="flex justify-between">
-                    <span class="text-slate-400">storage/ Directory:</span>
-                    ${d.storage_writable ? checkIcon : failIcon}
-                </div>
-                <div class="flex justify-between">
-                    <span class="text-slate-400">bootstrap/cache/ Directory:</span>
-                    ${d.cache_writable ? checkIcon : failIcon}
-                </div>
-                <div class="flex justify-between">
-                    <span class="text-slate-400">.git Repository Folder:</span>
-                    ${d.git_exists ? checkIcon : failIcon}
-                </div>
-            </div>
-
-            <div class="p-3 bg-slate-950/80 rounded-lg border border-slate-800 space-y-1.5">
-                <div class="text-xs font-semibold text-slate-300 mb-1">Process Execution Support:</div>
-                <div class="flex justify-between">
-                    <span class="text-slate-400">proc_open():</span>
-                    ${d.proc_open_available ? checkIcon : failIcon}
-                </div>
-                <div class="flex justify-between">
-                    <span class="text-slate-400">exec():</span>
-                    ${d.exec_available ? checkIcon : failIcon}
-                </div>
-                <div class="flex justify-between">
-                    <span class="text-slate-400">shell_exec():</span>
-                    ${d.shell_exec_available ? checkIcon : failIcon}
-                </div>
-            </div>
-
-            ${d.disabled_functions.length > 0 ? `
-                <div class="p-3 bg-slate-950/80 rounded-lg border border-slate-800">
-                    <span class="text-slate-400 block mb-1">Disabled PHP Functions (php.ini):</span>
-                    <span class="text-amber-300 font-mono text-[11px] break-all">${escapeHtml(d.disabled_functions.join(', '))}</span>
-                </div>
-            ` : ''}
-        `;
-    }
-}
-
-// Load Laravel Logs
-async function loadLaravelLogs() {
-    const container = document.getElementById('laravel-logs-container');
-    container.innerText = 'Fetching latest log lines...';
-    const res = await postAction('get_laravel_logs');
-    if (res.success) {
-        container.innerText = res.output || 'Log is empty.';
-    } else {
-        container.innerText = res.error || 'Failed to read laravel.log';
-    }
-}
-
-// Initial Boot
-window.addEventListener('DOMContentLoaded', () => {
-    refreshStatus();
-});
-</script>
 
 <?php } ?>
+
+</div>
+
 </body>
 </html>
