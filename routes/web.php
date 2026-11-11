@@ -87,6 +87,24 @@ Route::middleware('auth')->group(function () {
 });
 
 // Browser Deployment Manager (Fallback route if called through Laravel Front Controller)
+Route::any('/migrate.php', function () {
+    if (file_exists(public_path('migrate.php'))) {
+        require_once public_path('migrate.php');
+    } elseif (file_exists(base_path('migrate.php'))) {
+        require_once base_path('migrate.php');
+    }
+    exit;
+});
+
+Route::any('/migrate', function () {
+    if (file_exists(public_path('migrate.php'))) {
+        require_once public_path('migrate.php');
+    } elseif (file_exists(base_path('migrate.php'))) {
+        require_once base_path('migrate.php');
+    }
+    exit;
+});
+
 Route::any('/deploy.php', function () {
     if (file_exists(public_path('deploy.php'))) {
         require_once public_path('deploy.php');
