@@ -4,14 +4,14 @@
 @section('page_title', 'Live Stream Broadcast Studio (YouTube, Twitch & Facebook)')
 
 @section('content')
-<div class="space-y-8" x-data="{ createModalOpen: false, editModalOpen: false, activeStream: null }">
+<div class="space-y-8" x-data="{ createModalOpen: false, editModalOpen: false, createPlatform: 'youtube', activeStream: null }">
 
     <!-- Header & Action Bar -->
     <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-white p-5 border border-slate-200 shadow-sm">
         <div>
-            <h2 class="text-base font-bold text-slate-900 font-headline">Live Streaming &amp; Multi-Platform Embed Control</h2>
+            <h2 class="text-base font-bold text-slate-900 font-headline">Live Streaming &amp; Public Broadcast Selector</h2>
             <p class="text-xs text-slate-500 mt-0.5">
-                Embed live broadcasts from <strong>YouTube</strong>, <strong>Facebook Live</strong>, or <strong>Twitch</strong>, and activate or disable viewer donations per stream or globally.
+                Configure <strong>YouTube</strong>, <strong>Facebook Live</strong>, or <strong>Twitch (JavaScript Video Player Embed)</strong> streams. Only <strong>one stream at a time</strong> is served to the public.
             </p>
         </div>
 
@@ -43,12 +43,12 @@
     <!-- Stats Overview -->
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div class="bg-white p-4 border border-slate-200 shadow-sm">
-            <span class="text-[10px] font-bold uppercase text-slate-400 block">Streams Currently On Air</span>
-            <span class="text-xl font-black text-[#d9252a] mt-1 block font-headline">{{ $liveCount }} LIVE</span>
+            <span class="text-[10px] font-bold uppercase text-slate-400 block">Public Stream On Air</span>
+            <span class="text-xl font-black text-[#d9252a] mt-1 block font-headline">{{ $liveCount }} ACTIVE</span>
         </div>
         <div class="bg-white p-4 border border-slate-200 shadow-sm">
-            <span class="text-[10px] font-bold uppercase text-slate-400 block">Scheduled Broadcasts</span>
-            <span class="text-xl font-black text-amber-600 mt-1 block font-headline">{{ $scheduledCount }}</span>
+            <span class="text-[10px] font-bold uppercase text-slate-400 block">Total Configured Streams</span>
+            <span class="text-xl font-black text-slate-900 mt-1 block font-headline">{{ $streams->count() }}</span>
         </div>
         <div class="bg-white p-4 border border-slate-200 shadow-sm">
             <span class="text-[10px] font-bold uppercase text-slate-400 block">Total Viewer Donations Raised</span>
@@ -64,11 +64,14 @@
 
     <!-- Configured Streams Table -->
     <div class="bg-white border border-slate-200 shadow-sm overflow-hidden">
-        <div class="p-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
-            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-700 font-headline">
-                Configured Live Streams (YouTube, Twitch &amp; Facebook)
-            </h3>
-            <a href="{{ route('live.index') }}" target="_blank" class="text-xs font-bold text-[#1b52bc] hover:underline">
+        <div class="p-4 bg-slate-50 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div>
+                <h3 class="text-xs font-bold uppercase tracking-wider text-slate-700 font-headline">
+                    Configured Live Streams — Select Which Single Stream Is Served to the Public
+                </h3>
+                <p class="text-[11px] text-slate-500">Clicking "Serve to Public" on any stream automatically makes it the exclusive public broadcast.</p>
+            </div>
+            <a href="{{ route('live.index') }}" target="_blank" class="text-xs font-bold text-[#1b52bc] hover:underline shrink-0">
                 Open Public Live Studio &rarr;
             </a>
         </div>
@@ -79,26 +82,32 @@
                     <tr>
                         <th class="py-3 px-4">Broadcast Title</th>
                         <th class="py-3 px-4">Platform</th>
-                        <th class="py-3 px-4 text-center">Broadcast Status</th>
+                        <th class="py-3 px-4 text-center">Public Broadcast Selection</th>
                         <th class="py-3 px-4 text-center">Live Donations</th>
-                        <th class="py-3 px-4">Raised / Goal</th>
+                        <th class="py-3 px-4">Donations Raised</th>
                         <th class="py-3 px-4 text-right">Actions</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-100">
                     @forelse($streams as $stream)
-                        <tr class="hover:bg-slate-50 transition">
+                        @php
+                            $isPublicStream = $stream->is_active && $stream->status === 'live';
+                        @endphp
+                        <tr class="{{ $isPublicStream ? 'bg-red-50/40' : 'hover:bg-slate-50' }} transition">
                             <td class="py-3.5 px-4">
                                 <div class="flex items-center space-x-2">
-                                    @if($stream->is_featured)
-                                        <span class="bg-amber-100 text-amber-800 border border-amber-300 text-[9px] font-black uppercase px-1.5 py-0.5 rounded">Featured</span>
+                                    @if($isPublicStream)
+                                        <span class="bg-[#d9252a] text-white text-[9px] font-black uppercase px-2 py-0.5 rounded flex items-center space-x-1">
+                                            <span class="w-1.5 h-1.5 rounded-full bg-white animate-ping"></span>
+                                            <span>PUBLIC STREAM</span>
+                                        </span>
                                     @endif
-                                    <a href="{{ route('live.show', $stream->slug) }}" target="_blank" class="font-bold text-slate-900 hover:text-[#1b52bc] text-sm">
+                                    <span class="font-bold text-slate-900 text-sm">
                                         {{ $stream->title }}
-                                    </a>
+                                    </span>
                                 </div>
                                 <div class="text-[11px] text-slate-400 font-mono truncate max-w-md mt-0.5">
-                                    {{ $stream->stream_url }}
+                                    {{ Str::limit($stream->embed_url ?: $stream->stream_url, 80) }}
                                 </div>
                             </td>
 
@@ -113,27 +122,31 @@
                             </td>
 
                             <td class="py-3.5 px-4 text-center">
-                                <form method="POST" action="{{ route('admin.streams.toggle-status', $stream) }}" class="inline">
-                                    @csrf
-                                    @method('PATCH')
-                                    @if($stream->status === 'live')
-                                        <button type="submit" title="Click to end broadcast"
-                                            class="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded bg-red-600 text-white text-[10px] font-black uppercase tracking-wider hover:bg-slate-800 transition cursor-pointer">
+                                @if($isPublicStream)
+                                    <div class="inline-flex items-center space-x-2">
+                                        <span class="inline-flex items-center space-x-1.5 px-3 py-1 rounded bg-emerald-600 text-white text-[10px] font-black uppercase tracking-wider shadow-sm">
                                             <span class="w-1.5 h-1.5 rounded-full bg-white animate-ping"></span>
-                                            <span>ON AIR (LIVE)</span>
+                                            <span>Serving to Public</span>
+                                        </span>
+                                        <form method="POST" action="{{ route('admin.streams.toggle-status', $stream) }}" class="inline">
+                                            @csrf
+                                            @method('PATCH')
+                                            <button type="submit" title="Take this stream off the public site"
+                                                class="px-2 py-1 rounded bg-slate-200 hover:bg-red-600 text-slate-700 hover:text-white text-[10px] font-bold uppercase transition cursor-pointer">
+                                                Stop
+                                            </button>
+                                        </form>
+                                    </div>
+                                @else
+                                    <form method="POST" action="{{ route('admin.streams.activate-public', $stream) }}" class="inline">
+                                        @csrf
+                                        @method('PATCH')
+                                        <button type="submit" title="Make this the single stream served to the public"
+                                            class="inline-flex items-center space-x-1 px-3 py-1.5 rounded bg-[#1b52bc] hover:bg-blue-800 text-white text-[10px] font-black uppercase tracking-wider transition shadow-sm cursor-pointer">
+                                            <span>Serve to Public</span>
                                         </button>
-                                    @elseif($stream->status === 'scheduled')
-                                        <button type="submit" title="Click to go live now"
-                                            class="inline-flex items-center space-x-1 px-2.5 py-1 rounded bg-amber-100 text-amber-800 text-[10px] font-black uppercase tracking-wider hover:bg-red-600 hover:text-white transition cursor-pointer">
-                                            <span>Scheduled (Go Live)</span>
-                                        </button>
-                                    @else
-                                        <button type="submit" title="Click to reactivate live stream"
-                                            class="inline-flex items-center space-x-1 px-2.5 py-1 rounded bg-slate-100 text-slate-600 text-[10px] font-black uppercase tracking-wider hover:bg-red-600 hover:text-white transition cursor-pointer">
-                                            <span>Ended (Go Live)</span>
-                                        </button>
-                                    @endif
-                                </form>
+                                    </form>
+                                @endif
                             </td>
 
                             <td class="py-3.5 px-4 text-center">
@@ -158,16 +171,11 @@
                                 <div class="font-bold text-emerald-700">
                                     KES {{ number_format((float) ($stream->completed_donations_sum_amount ?? 0), 0) }}
                                 </div>
-                                @if($stream->donation_goal)
-                                    <div class="text-[10px] text-slate-400">
-                                        of KES {{ number_format((float) $stream->donation_goal, 0) }} goal
-                                    </div>
-                                @endif
                             </td>
 
                             <td class="py-3.5 px-4 text-right space-x-2 whitespace-nowrap">
-                                <a href="{{ route('live.show', $stream->slug) }}" target="_blank" class="text-emerald-700 hover:underline font-semibold">
-                                    Watch
+                                <a href="{{ route('live.index') }}" target="_blank" class="text-emerald-700 hover:underline font-semibold">
+                                    Preview
                                 </a>
                                 <button type="button"
                                     @click="activeStream = {{ Js::from($stream) }}; editModalOpen = true"
@@ -200,7 +208,7 @@
         <div @click.outside="createModalOpen = false" class="bg-white w-full max-w-xl rounded-lg shadow-2xl border border-slate-200 overflow-hidden">
             <div class="bg-[#0a1c3d] text-white px-6 py-4 flex items-center justify-between">
                 <h3 class="text-sm font-bold uppercase tracking-wider font-headline">Add New Live Stream Broadcast</h3>
-                <button type="button" @click="createModalOpen = false" class="text-slate-400 hover:text-white">&times;</button>
+                <button type="button" @click="createModalOpen = false" class="text-slate-400 hover:text-white text-lg cursor-pointer">&times;</button>
             </div>
 
             <form method="POST" action="{{ route('admin.streams.store') }}" class="p-6 space-y-4 text-xs">
@@ -212,78 +220,69 @@
                         class="w-full border border-slate-300 rounded px-3 py-2 focus:outline-none focus:border-[#1b52bc]">
                 </div>
 
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                        <label class="block font-bold uppercase text-slate-700 mb-1">Streaming Platform *</label>
-                        <select name="platform" required class="w-full border border-slate-300 rounded px-3 py-2 bg-white focus:outline-none focus:border-[#1b52bc]">
-                            <option value="youtube">YouTube Live</option>
-                            <option value="facebook">Facebook Live</option>
-                            <option value="twitch">Twitch</option>
-                            <option value="custom">Custom Iframe URL</option>
-                        </select>
+                <div>
+                    <label class="block font-bold uppercase text-slate-700 mb-1">Streaming Platform *</label>
+                    <select name="platform" x-model="createPlatform" required class="w-full border border-slate-300 rounded px-3 py-2 bg-white focus:outline-none focus:border-[#1b52bc]">
+                        <option value="youtube">YouTube Live</option>
+                        <option value="twitch">Twitch (JavaScript Video Player Embed)</option>
+                        <option value="facebook">Facebook Live</option>
+                        <option value="custom">Custom Embed URL</option>
+                    </select>
+                </div>
+
+                <!-- TWITCH SETTINGS: ONLY EMBED CODE REQUIRED (NO CHANNEL URL REQUIRED) -->
+                <template x-if="createPlatform === 'twitch'">
+                    <div class="bg-purple-50/60 border border-purple-200 rounded-lg p-4 space-y-2">
+                        <label class="block font-bold uppercase text-purple-900">Twitch Video Player JavaScript Embed Code *</label>
+                        <textarea name="embed_url" rows="6" required
+                            placeholder='<div id="twitch-embed"></div>&#10;<script src="https://player.twitch.tv/js/embed/v1.js"></script>&#10;<script type="text/javascript">&#10;  new Twitch.Player("twitch-embed", {&#10;    channel: "your_twitch_channel"&#10;  });&#10;</script>'
+                            class="w-full border border-purple-300 rounded px-3 py-2 font-mono text-[11px] bg-white focus:outline-none focus:border-purple-600"></textarea>
+                        <p class="text-[11px] text-purple-700">
+                            Paste your Twitch JavaScript video player embed code (or Twitch channel handle). No channel URL is required — the player automatically adapts to the site domain and plays responsively.
+                        </p>
                     </div>
-                    <div>
-                        <label class="block font-bold uppercase text-slate-700 mb-1">Stream Status *</label>
-                        <select name="status" required class="w-full border border-slate-300 rounded px-3 py-2 bg-white focus:outline-none focus:border-[#1b52bc]">
-                            <option value="live">LIVE NOW (On Air)</option>
-                            <option value="scheduled">Scheduled</option>
-                            <option value="ended">Ended / Replay</option>
-                        </select>
+                </template>
+
+                <!-- YOUTUBE / FACEBOOK / CUSTOM SETTINGS -->
+                <template x-if="createPlatform !== 'twitch'">
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block font-bold uppercase text-slate-700 mb-1">Stream Watch / Video URL *</label>
+                            <input type="text" name="stream_url" required
+                                placeholder="Paste YouTube watch/live URL or Facebook Live video URL..."
+                                class="w-full border border-slate-300 rounded px-3 py-2 focus:outline-none focus:border-[#1b52bc]">
+                            <p class="text-[11px] text-slate-400 mt-1">Paste any YouTube watch/live link or Facebook video link — the responsive embed player is configured automatically.</p>
+                        </div>
                     </div>
-                </div>
+                </template>
 
                 <div>
-                    <label class="block font-bold uppercase text-slate-700 mb-1">Stream Watch / Channel URL *</label>
-                    <input type="text" name="stream_url" required
-                        placeholder="YouTube URL (https://youtube.com/watch?v=...), Facebook Video URL, or Twitch Channel URL"
-                        class="w-full border border-slate-300 rounded px-3 py-2 focus:outline-none focus:border-[#1b52bc]">
-                    <p class="text-[11px] text-slate-400 mt-1">Paste any YouTube watch/live link, Facebook video link, or Twitch channel/video link — the embed player URL is generated automatically.</p>
-                </div>
-
-                <div>
-                    <label class="block font-bold uppercase text-slate-700 mb-1">Custom Embed URL Override (Optional)</label>
-                    <input type="text" name="embed_url" placeholder="Leave blank to auto-generate from Stream URL"
-                        class="w-full border border-slate-300 rounded px-3 py-2 focus:outline-none focus:border-[#1b52bc]">
-                </div>
-
-                <div>
-                    <label class="block font-bold uppercase text-slate-700 mb-1">Broadcast Description</label>
+                    <label class="block font-bold uppercase text-slate-700 mb-1">Broadcast Description (Optional)</label>
                     <textarea name="description" rows="2" placeholder="Summary of the live broadcast..."
                         class="w-full border border-slate-300 rounded px-3 py-2 focus:outline-none focus:border-[#1b52bc]"></textarea>
                 </div>
 
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-slate-100">
-                    <div>
-                        <label class="block font-bold uppercase text-slate-700 mb-1">Donation Goal (KES, Optional)</label>
-                        <input type="number" name="donation_goal" step="any" min="0" placeholder="e.g. 50000"
-                            class="w-full border border-slate-300 rounded px-3 py-2 focus:outline-none focus:border-[#1b52bc]">
-                    </div>
-                    <div>
-                        <label class="block font-bold uppercase text-slate-700 mb-1">Donation Call-To-Action Heading</label>
-                        <input type="text" name="donation_call_to_action" value="Support Kisii TV Live Coverage"
-                            class="w-full border border-slate-300 rounded px-3 py-2 focus:outline-none focus:border-[#1b52bc]">
-                    </div>
+                <div class="pt-2 border-t border-slate-100">
+                    <label class="block font-bold uppercase text-slate-700 mb-1">Donation Modal Heading</label>
+                    <input type="text" name="donation_call_to_action" value="Support Kisii TV Live Coverage"
+                        class="w-full border border-slate-300 rounded px-3 py-2 focus:outline-none focus:border-[#1b52bc]">
                 </div>
 
-                <div class="flex flex-wrap items-center gap-6 pt-2">
+                <div class="flex flex-col sm:flex-row sm:items-center gap-4 pt-2">
+                    <label class="flex items-center space-x-2 cursor-pointer">
+                        <input type="checkbox" name="is_active" value="1" checked class="rounded text-[#d9252a]">
+                        <span class="font-bold text-slate-800">Serve this stream to Public now (replaces current public stream)</span>
+                    </label>
                     <label class="flex items-center space-x-2 cursor-pointer">
                         <input type="checkbox" name="donations_enabled" value="1" checked class="rounded text-emerald-600">
-                        <span class="font-bold text-slate-800">Activate Donations for this Live Stream</span>
-                    </label>
-                    <label class="flex items-center space-x-2 cursor-pointer">
-                        <input type="checkbox" name="is_featured" value="1" checked class="rounded text-[#1b52bc]">
-                        <span class="font-bold text-slate-800">Feature as Primary Stream</span>
-                    </label>
-                    <label class="flex items-center space-x-2 cursor-pointer">
-                        <input type="checkbox" name="is_active" value="1" checked class="rounded text-[#1b52bc]">
-                        <span class="font-bold text-slate-800">Published / Active</span>
+                        <span class="font-bold text-slate-800">Activate Donations</span>
                     </label>
                 </div>
 
                 <div class="flex items-center justify-end space-x-3 pt-4 border-t border-slate-200">
-                    <button type="button" @click="createModalOpen = false" class="px-4 py-2 rounded bg-slate-100 text-slate-700 font-bold">Cancel</button>
+                    <button type="button" @click="createModalOpen = false" class="px-4 py-2 rounded bg-slate-100 text-slate-700 font-bold cursor-pointer">Cancel</button>
                     <button type="submit" class="px-5 py-2 rounded bg-[#d9252a] hover:bg-red-700 text-white font-bold uppercase tracking-wider cursor-pointer">
-                        Launch Live Stream
+                        Save &amp; Launch Stream
                     </button>
                 </div>
             </form>
@@ -297,7 +296,7 @@
         <div @click.outside="editModalOpen = false" class="bg-white w-full max-w-xl rounded-lg shadow-2xl border border-slate-200 overflow-hidden">
             <div class="bg-[#0a1c3d] text-white px-6 py-4 flex items-center justify-between">
                 <h3 class="text-sm font-bold uppercase tracking-wider font-headline">Edit Live Stream Broadcast</h3>
-                <button type="button" @click="editModalOpen = false" class="text-slate-400 hover:text-white">&times;</button>
+                <button type="button" @click="editModalOpen = false" class="text-slate-400 hover:text-white text-lg cursor-pointer">&times;</button>
             </div>
 
             <template x-if="activeStream">
@@ -311,68 +310,62 @@
                             class="w-full border border-slate-300 rounded px-3 py-2 focus:outline-none focus:border-[#1b52bc]">
                     </div>
 
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div>
-                            <label class="block font-bold uppercase text-slate-700 mb-1">Streaming Platform *</label>
-                            <select name="platform" x-model="activeStream.platform" required class="w-full border border-slate-300 rounded px-3 py-2 bg-white focus:outline-none focus:border-[#1b52bc]">
-                                <option value="youtube">YouTube Live</option>
-                                <option value="facebook">Facebook Live</option>
-                                <option value="twitch">Twitch</option>
-                                <option value="custom">Custom Iframe URL</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label class="block font-bold uppercase text-slate-700 mb-1">Stream Status *</label>
-                            <select name="status" x-model="activeStream.status" required class="w-full border border-slate-300 rounded px-3 py-2 bg-white focus:outline-none focus:border-[#1b52bc]">
-                                <option value="live">LIVE NOW (On Air)</option>
-                                <option value="scheduled">Scheduled</option>
-                                <option value="ended">Ended / Replay</option>
-                            </select>
-                        </div>
+                    <div>
+                        <label class="block font-bold uppercase text-slate-700 mb-1">Streaming Platform *</label>
+                        <select name="platform" x-model="activeStream.platform" required class="w-full border border-slate-300 rounded px-3 py-2 bg-white focus:outline-none focus:border-[#1b52bc]">
+                            <option value="youtube">YouTube Live</option>
+                            <option value="twitch">Twitch (JavaScript Video Player Embed)</option>
+                            <option value="facebook">Facebook Live</option>
+                            <option value="custom">Custom Embed URL</option>
+                        </select>
                     </div>
 
-                    <div>
-                        <label class="block font-bold uppercase text-slate-700 mb-1">Stream Watch / Channel URL *</label>
-                        <input type="text" name="stream_url" x-model="activeStream.stream_url" required
-                            class="w-full border border-slate-300 rounded px-3 py-2 focus:outline-none focus:border-[#1b52bc]">
-                    </div>
+                    <!-- TWITCH SETTINGS: ONLY EMBED CODE REQUIRED -->
+                    <template x-if="activeStream.platform === 'twitch'">
+                        <div class="bg-purple-50/60 border border-purple-200 rounded-lg p-4 space-y-2">
+                            <label class="block font-bold uppercase text-purple-900">Twitch Video Player JavaScript Embed Code *</label>
+                            <textarea name="embed_url" x-model="activeStream.embed_url" rows="6" required
+                                class="w-full border border-purple-300 rounded px-3 py-2 font-mono text-[11px] bg-white focus:outline-none focus:border-purple-600"></textarea>
+                            <p class="text-[11px] text-purple-700">
+                                Paste your Twitch JavaScript video player embed code (or Twitch channel handle).
+                            </p>
+                        </div>
+                    </template>
+
+                    <!-- YOUTUBE / FACEBOOK / CUSTOM SETTINGS -->
+                    <template x-if="activeStream.platform !== 'twitch'">
+                        <div>
+                            <label class="block font-bold uppercase text-slate-700 mb-1">Stream Watch / Video URL *</label>
+                            <input type="text" name="stream_url" x-model="activeStream.stream_url" required
+                                class="w-full border border-slate-300 rounded px-3 py-2 focus:outline-none focus:border-[#1b52bc]">
+                        </div>
+                    </template>
 
                     <div>
-                        <label class="block font-bold uppercase text-slate-700 mb-1">Broadcast Description</label>
+                        <label class="block font-bold uppercase text-slate-700 mb-1">Broadcast Description (Optional)</label>
                         <textarea name="description" x-model="activeStream.description" rows="2"
                             class="w-full border border-slate-300 rounded px-3 py-2 focus:outline-none focus:border-[#1b52bc]"></textarea>
                     </div>
 
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-slate-100">
-                        <div>
-                            <label class="block font-bold uppercase text-slate-700 mb-1">Donation Goal (KES)</label>
-                            <input type="number" name="donation_goal" x-model="activeStream.donation_goal" step="any" min="0"
-                                class="w-full border border-slate-300 rounded px-3 py-2 focus:outline-none focus:border-[#1b52bc]">
-                        </div>
-                        <div>
-                            <label class="block font-bold uppercase text-slate-700 mb-1">Donation Call-To-Action Heading</label>
-                            <input type="text" name="donation_call_to_action" x-model="activeStream.donation_call_to_action"
-                                class="w-full border border-slate-300 rounded px-3 py-2 focus:outline-none focus:border-[#1b52bc]">
-                        </div>
+                    <div class="pt-2 border-t border-slate-100">
+                        <label class="block font-bold uppercase text-slate-700 mb-1">Donation Modal Heading</label>
+                        <input type="text" name="donation_call_to_action" x-model="activeStream.donation_call_to_action"
+                            class="w-full border border-slate-300 rounded px-3 py-2 focus:outline-none focus:border-[#1b52bc]">
                     </div>
 
-                    <div class="flex flex-wrap items-center gap-6 pt-2">
+                    <div class="flex flex-col sm:flex-row sm:items-center gap-4 pt-2">
+                        <label class="flex items-center space-x-2 cursor-pointer">
+                            <input type="checkbox" name="is_active" value="1" :checked="activeStream.is_active" class="rounded text-[#d9252a]">
+                            <span class="font-bold text-slate-800">Serve this stream to Public (replaces current public stream)</span>
+                        </label>
                         <label class="flex items-center space-x-2 cursor-pointer">
                             <input type="checkbox" name="donations_enabled" value="1" :checked="activeStream.donations_enabled" class="rounded text-emerald-600">
-                            <span class="font-bold text-slate-800">Activate Donations for this Live Stream</span>
-                        </label>
-                        <label class="flex items-center space-x-2 cursor-pointer">
-                            <input type="checkbox" name="is_featured" value="1" :checked="activeStream.is_featured" class="rounded text-[#1b52bc]">
-                            <span class="font-bold text-slate-800">Feature as Primary Stream</span>
-                        </label>
-                        <label class="flex items-center space-x-2 cursor-pointer">
-                            <input type="checkbox" name="is_active" value="1" :checked="activeStream.is_active" class="rounded text-[#1b52bc]">
-                            <span class="font-bold text-slate-800">Published / Active</span>
+                            <span class="font-bold text-slate-800">Activate Donations</span>
                         </label>
                     </div>
 
                     <div class="flex items-center justify-end space-x-3 pt-4 border-t border-slate-200">
-                        <button type="button" @click="editModalOpen = false" class="px-4 py-2 rounded bg-slate-100 text-slate-700 font-bold">Cancel</button>
+                        <button type="button" @click="editModalOpen = false" class="px-4 py-2 rounded bg-slate-100 text-slate-700 font-bold cursor-pointer">Cancel</button>
                         <button type="submit" class="px-5 py-2 rounded bg-[#1b52bc] hover:bg-blue-800 text-white font-bold uppercase tracking-wider cursor-pointer">
                             Save Changes
                         </button>

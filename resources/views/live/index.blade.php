@@ -382,40 +382,6 @@
             </div>
         @endif
 
-        <!-- Other Live, Scheduled & Past Streams -->
-        @if($otherStreams->isNotEmpty())
-            <div class="mt-12 pt-8 border-t border-slate-800">
-                <h2 class="text-base font-extrabold uppercase tracking-wider text-white font-headline mb-5 flex items-center space-x-2">
-                    <span class="w-2.5 h-2.5 bg-[#d9252a] inline-block"></span>
-                    <span>More Broadcasts &amp; Scheduled Streams</span>
-                </h2>
-
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-                    @foreach($otherStreams as $stream)
-                        <a href="{{ route('live.show', $stream->slug) }}"
-                            class="group bg-slate-900 border border-slate-800 hover:border-[#d9252a] rounded-lg p-4 transition flex flex-col justify-between space-y-3">
-                            <div>
-                                <div class="flex items-center justify-between text-[10px] font-black uppercase tracking-wider mb-2">
-                                    <span class="px-2 py-0.5 rounded {{ $stream->status === 'live' ? 'bg-[#d9252a] text-white' : 'bg-slate-800 text-slate-300' }}">
-                                        {{ strtoupper($stream->status) }}
-                                    </span>
-                                </div>
-                                <h3 class="text-sm font-bold text-white group-hover:text-red-400 transition font-headline line-clamp-2">
-                                    {{ $stream->title }}
-                                </h3>
-                                @if($stream->description)
-                                    <p class="text-xs text-slate-400 line-clamp-2 mt-1">{{ $stream->description }}</p>
-                                @endif
-                            </div>
-                            <div class="pt-2 border-t border-slate-800/80 flex items-center justify-end text-[11px] text-slate-400">
-                                <span class="text-red-400 font-bold group-hover:translate-x-0.5 transition">Watch &rarr;</span>
-                            </div>
-                        </a>
-                    @endforeach
-                </div>
-            </div>
-        @endif
-
     </div>
 </div>
 @endsection

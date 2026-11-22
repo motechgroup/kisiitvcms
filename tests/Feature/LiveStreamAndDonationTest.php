@@ -64,12 +64,21 @@ class LiveStreamAndDonationTest extends TestCase
         $this->assertSame('https://www.youtube.com/embed/jfKfPfyJRdk?autoplay=1&mute=1&playsinline=1&rel=0', $ytStream->embed_url);
         $this->assertStringContainsString('autoplay=1&mute=1', $ytStream->getComputedEmbedUrl('localhost'));
 
-        // 2. Twitch Live Stream
+        // 2. Twitch Live Stream (using only title + JavaScript Embed Code, no stream_url required)
+        $twitchJsEmbed = <<<'HTML'
+<div id="twitch-embed"></div>
+<script src="https://player.twitch.tv/js/embed/v1.js"></script>
+<script type="text/javascript">
+  new Twitch.Player("twitch-embed", {
+    channel: "kisiitv_official"
+  });
+</script>
+HTML;
+
         $twitchResponse = $this->actingAs($this->superAdmin)->post(route('admin.streams.store'), [
             'title' => 'Kisii TV Twitch Townhall Stream',
             'platform' => 'twitch',
-            'stream_url' => 'https://www.twitch.tv/kisiitv_official',
-            'status' => 'live',
+            'embed_url' => $twitchJsEmbed,
             'is_active' => 1,
             'donations_enabled' => 1,
         ]);
@@ -79,12 +88,22 @@ class LiveStreamAndDonationTest extends TestCase
         $this->assertTrue($twitchStream->isTwitch());
         $this->assertSame('kisiitv_official', $twitchStream->getTwitchPlayerOptions('kisiitv.co.ke')['channel']);
 
+        // Because only one stream at a time is served to public, activating Twitch stream automatically deactivated the previous YouTube stream
+        $this->assertTrue($twitchStream->is_active);
+        $this->assertFalse($ytStream->fresh()->is_active);
+
         // Verify public Twitch stream page renders Twitch.Player JavaScript SDK instead of an iframe
-        $twitchPublicPage = $this->get(route('live.show', $twitchStream->slug));
+        $twitchPublicPage = $this->get(route('live.index'));
         $twitchPublicPage->assertStatus(200);
         $twitchPublicPage->assertSee('https://player.twitch.tv/js/embed/v1.js', false);
         $twitchPublicPage->assertSee("new Twitch.Player('kisiitv-twitch-player'", false);
         $twitchPublicPage->assertSee('kisiitv_official');
+
+        // Admin can switch which single stream is served to the public via activate-public
+        $switchResponse = $this->actingAs($this->superAdmin)->patch(route('admin.streams.activate-public', $ytStream));
+        $switchResponse->assertRedirect(route('admin.streams.index'));
+        $this->assertTrue($ytStream->fresh()->is_active);
+        $this->assertFalse($twitchStream->fresh()->is_active);
 
         // 3. Facebook Live Stream
         $fbUrl = 'https://www.facebook.com/KisiitvAmandegere/videos/123456789012345';

@@ -8,12 +8,13 @@ use App\Models\Category;
 use App\Models\Donation;
 use App\Models\LiveStream;
 use App\Models\PaymentGateway;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\View\View;
 
 class LiveStreamController extends Controller
 {
     /**
-     * Display the primary live broadcast studio and donation desk.
+     * Display the single active public live broadcast and donation desk.
      */
     public function index(): View
     {
@@ -22,7 +23,7 @@ class LiveStreamController extends Controller
         $activeStream = LiveStream::active()
             ->where('status', 'live')
             ->orderByDesc('is_featured')
-            ->latest('started_at')
+            ->latest('id')
             ->first();
 
         if (! $activeStream) {
@@ -36,12 +37,14 @@ class LiveStreamController extends Controller
     }
 
     /**
-     * Display a specific live stream by slug.
+     * Display a specific live stream by slug (only if it is the active public stream, or if viewed by admin).
      */
-    public function show(LiveStream $liveStream): View
+    public function show(LiveStream $liveStream): View|RedirectResponse
     {
         if (! $liveStream->is_active) {
-            abort_unless(auth()->check(), 404);
+            if (! auth()->check()) {
+                return redirect()->route('live.index');
+            }
         }
 
         PaymentGateway::ensureDefaultsExist();
@@ -52,7 +55,7 @@ class LiveStreamController extends Controller
     }
 
     /**
-     * Build the view payload for the live broadcast page.
+     * Build the view payload for the live broadcast page (serving only the single chosen stream).
      */
     protected function renderStreamView(?LiveStream $activeStream): View
     {
@@ -63,12 +66,7 @@ class LiveStreamController extends Controller
             ->with(['children' => fn ($q) => $q->menu()])
             ->get();
 
-        $otherStreams = LiveStream::active()
-            ->when($activeStream, fn ($q) => $q->where('id', '!=', $activeStream->id))
-            ->orderByRaw("CASE WHEN status = 'live' THEN 0 WHEN status = 'scheduled' THEN 1 ELSE 2 END")
-            ->latest('id')
-            ->take(8)
-            ->get();
+        $otherStreams = collect();
 
         $activeGateways = PaymentGateway::active()->get();
 

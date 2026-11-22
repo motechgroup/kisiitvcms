@@ -24,6 +24,7 @@ class LiveStreamController extends Controller
         $streams = LiveStream::with('creator')
             ->withCount(['donations', 'completedDonations'])
             ->withSum('completedDonations', 'amount')
+            ->orderByDesc('is_active')
             ->orderByDesc('is_featured')
             ->orderByDesc('id')
             ->get();
@@ -45,7 +46,7 @@ class LiveStreamController extends Controller
     }
 
     /**
-     * Store a new live stream supporting YouTube, Facebook, Twitch, or custom embed.
+     * Store a new live stream supporting YouTube, Facebook, Twitch (JS Embed), or custom embed.
      */
     public function store(Request $request): RedirectResponse
     {
@@ -54,10 +55,10 @@ class LiveStreamController extends Controller
             'slug' => ['nullable', 'string', 'max:255', 'unique:live_streams,slug'],
             'description' => ['nullable', 'string', 'max:2000'],
             'platform' => ['required', 'string', 'in:youtube,facebook,twitch,custom'],
-            'stream_url' => ['required', 'string', 'max:500'],
-            'embed_url' => ['nullable', 'string', 'max:500'],
+            'stream_url' => ['required_without:embed_url', 'nullable', 'string', 'max:5000'],
+            'embed_url' => ['required_without:stream_url', 'nullable', 'string', 'max:5000'],
             'thumbnail' => ['nullable', 'string', 'max:500'],
-            'status' => ['required', 'string', 'in:scheduled,live,ended'],
+            'status' => ['nullable', 'string', 'in:scheduled,live,ended'],
             'is_active' => ['nullable', 'boolean'],
             'is_featured' => ['nullable', 'boolean'],
             'donations_enabled' => ['nullable', 'boolean'],
@@ -77,36 +78,56 @@ class LiveStreamController extends Controller
             $counter++;
         }
 
-        $embedUrl = ! empty($validated['embed_url'])
-            ? $validated['embed_url']
-            : LiveStream::resolveEmbedUrl($validated['platform'], $validated['stream_url'], $request->getHost());
+        $platform = $validated['platform'];
+        $rawStreamUrl = trim((string) ($validated['stream_url'] ?? ''));
+        $rawEmbedUrl = trim((string) ($validated['embed_url'] ?? ''));
 
-        $isFeatured = $request->boolean('is_featured', false);
-        if ($isFeatured) {
-            LiveStream::where('is_featured', true)->update(['is_featured' => false]);
+        if ($platform === 'twitch') {
+            $embedCode = $rawEmbedUrl !== '' ? $rawEmbedUrl : $rawStreamUrl;
+            $streamUrl = $rawStreamUrl !== '' ? $rawStreamUrl : $embedCode;
+            $embedUrl = $embedCode;
+        } else {
+            $streamUrl = $rawStreamUrl !== '' ? $rawStreamUrl : $rawEmbedUrl;
+            $embedUrl = $rawEmbedUrl !== ''
+                ? $rawEmbedUrl
+                : LiveStream::resolveEmbedUrl($platform, $streamUrl, $request->getHost());
+        }
+
+        $serveToPublic = $request->has('is_active')
+            ? $request->boolean('is_active')
+            : true;
+
+        $status = $validated['status'] ?? ($serveToPublic ? 'live' : 'scheduled');
+
+        // Enforce single active public stream at a time
+        if ($serveToPublic && $status === 'live') {
+            LiveStream::query()->update([
+                'is_active' => false,
+                'is_featured' => false,
+            ]);
         }
 
         LiveStream::create([
             'title' => $validated['title'],
             'slug' => $slug,
             'description' => $validated['description'] ?? null,
-            'platform' => $validated['platform'],
-            'stream_url' => $validated['stream_url'],
+            'platform' => $platform,
+            'stream_url' => $streamUrl,
             'embed_url' => $embedUrl,
             'thumbnail' => $validated['thumbnail'] ?? null,
-            'status' => $validated['status'],
-            'is_active' => $request->boolean('is_active', true),
-            'is_featured' => $isFeatured,
+            'status' => $status,
+            'is_active' => $serveToPublic,
+            'is_featured' => $serveToPublic,
             'donations_enabled' => $request->boolean('donations_enabled', true),
             'donation_goal' => $validated['donation_goal'] ?? null,
             'donation_call_to_action' => $validated['donation_call_to_action'] ?? 'Support Kisii TV Live Coverage',
             'scheduled_at' => $validated['scheduled_at'] ?? null,
-            'started_at' => $validated['status'] === 'live' ? now() : null,
+            'started_at' => $status === 'live' ? now() : null,
             'created_by' => auth()->id(),
         ]);
 
         return redirect()->route('admin.streams.index')
-            ->with('success', "Live stream '{$validated['title']}' created and configured for ".ucfirst($validated['platform']).'.');
+            ->with('success', "Live stream '{$validated['title']}' saved and configured.");
     }
 
     /**
@@ -118,10 +139,10 @@ class LiveStreamController extends Controller
             'title' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string', 'max:2000'],
             'platform' => ['required', 'string', 'in:youtube,facebook,twitch,custom'],
-            'stream_url' => ['required', 'string', 'max:500'],
-            'embed_url' => ['nullable', 'string', 'max:500'],
+            'stream_url' => ['required_without:embed_url', 'nullable', 'string', 'max:5000'],
+            'embed_url' => ['required_without:stream_url', 'nullable', 'string', 'max:5000'],
             'thumbnail' => ['nullable', 'string', 'max:500'],
-            'status' => ['required', 'string', 'in:scheduled,live,ended'],
+            'status' => ['nullable', 'string', 'in:scheduled,live,ended'],
             'is_active' => ['nullable', 'boolean'],
             'is_featured' => ['nullable', 'boolean'],
             'donations_enabled' => ['nullable', 'boolean'],
@@ -130,34 +151,52 @@ class LiveStreamController extends Controller
             'scheduled_at' => ['nullable', 'date'],
         ]);
 
-        $embedUrl = ! empty($validated['embed_url'])
-            ? $validated['embed_url']
-            : LiveStream::resolveEmbedUrl($validated['platform'], $validated['stream_url'], $request->getHost());
+        $platform = $validated['platform'];
+        $rawStreamUrl = trim((string) ($validated['stream_url'] ?? ''));
+        $rawEmbedUrl = trim((string) ($validated['embed_url'] ?? ''));
 
-        $isFeatured = $request->boolean('is_featured', false);
-        if ($isFeatured) {
-            LiveStream::where('id', '!=', $liveStream->id)->where('is_featured', true)->update(['is_featured' => false]);
+        if ($platform === 'twitch') {
+            $embedCode = $rawEmbedUrl !== '' ? $rawEmbedUrl : $rawStreamUrl;
+            $streamUrl = $rawStreamUrl !== '' ? $rawStreamUrl : $embedCode;
+            $embedUrl = $embedCode;
+        } else {
+            $streamUrl = $rawStreamUrl !== '' ? $rawStreamUrl : $rawEmbedUrl;
+            $embedUrl = $rawEmbedUrl !== ''
+                ? $rawEmbedUrl
+                : LiveStream::resolveEmbedUrl($platform, $streamUrl, $request->getHost());
+        }
+
+        $serveToPublic = $request->boolean('is_active', false);
+        $status = $validated['status'] ?? ($serveToPublic ? 'live' : 'ended');
+
+        // Enforce single active public stream at a time
+        if ($serveToPublic) {
+            LiveStream::where('id', '!=', $liveStream->id)->update([
+                'is_active' => false,
+                'is_featured' => false,
+            ]);
+            $status = 'live';
         }
 
         $startedAt = $liveStream->started_at;
         $endedAt = $liveStream->ended_at;
 
-        if ($validated['status'] === 'live' && ! $startedAt) {
+        if ($status === 'live' && ! $startedAt) {
             $startedAt = now();
-        } elseif ($validated['status'] === 'ended' && ! $endedAt) {
+        } elseif ($status === 'ended' && ! $endedAt) {
             $endedAt = now();
         }
 
         $liveStream->update([
             'title' => $validated['title'],
             'description' => $validated['description'] ?? null,
-            'platform' => $validated['platform'],
-            'stream_url' => $validated['stream_url'],
+            'platform' => $platform,
+            'stream_url' => $streamUrl,
             'embed_url' => $embedUrl,
             'thumbnail' => $validated['thumbnail'] ?? null,
-            'status' => $validated['status'],
-            'is_active' => $request->boolean('is_active', false),
-            'is_featured' => $isFeatured,
+            'status' => $status,
+            'is_active' => $serveToPublic,
+            'is_featured' => $serveToPublic,
             'donations_enabled' => $request->boolean('donations_enabled', false),
             'donation_goal' => $validated['donation_goal'] ?? null,
             'donation_call_to_action' => $validated['donation_call_to_action'] ?? $liveStream->donation_call_to_action,
@@ -171,22 +210,39 @@ class LiveStreamController extends Controller
     }
 
     /**
-     * Toggle live status between 'live' and 'ended'.
+     * Toggle whether this stream is the single active broadcast served to the public.
      */
     public function toggleStatus(LiveStream $liveStream): RedirectResponse
     {
-        $newStatus = $liveStream->status === 'live' ? 'ended' : 'live';
+        $isCurrentlyServingPublic = $liveStream->is_active && $liveStream->status === 'live';
 
-        $liveStream->update([
-            'status' => $newStatus,
-            'started_at' => $newStatus === 'live' ? ($liveStream->started_at ?? now()) : $liveStream->started_at,
-            'ended_at' => $newStatus === 'ended' ? now() : null,
-        ]);
+        if ($isCurrentlyServingPublic) {
+            $liveStream->update([
+                'status' => 'ended',
+                'is_active' => false,
+                'is_featured' => false,
+                'ended_at' => now(),
+            ]);
 
-        $label = $newStatus === 'live' ? 'ON AIR (Live)' : 'Ended';
+            return redirect()->route('admin.streams.index')
+                ->with('success', "Stream '{$liveStream->title}' has been taken off the public site.");
+        }
+
+        LiveStream::activateOnly($liveStream);
 
         return redirect()->route('admin.streams.index')
-            ->with('success', "Stream '{$liveStream->title}' is now {$label}.");
+            ->with('success', "Stream '{$liveStream->title}' is now the exclusive LIVE stream served to the public.");
+    }
+
+    /**
+     * Explicitly set a stream as the single active broadcast served to the public.
+     */
+    public function activatePublic(LiveStream $liveStream): RedirectResponse
+    {
+        LiveStream::activateOnly($liveStream);
+
+        return redirect()->route('admin.streams.index')
+            ->with('success', "Stream '{$liveStream->title}' is now the exclusive LIVE stream served to the public.");
     }
 
     /**

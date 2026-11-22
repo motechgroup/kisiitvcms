@@ -228,23 +228,47 @@ class LiveStream extends Model
     }
 
     /**
+     * Activate this stream as the single exclusive broadcast served to the public.
+     */
+    public static function activateOnly(self $stream): void
+    {
+        self::where('id', '!=', $stream->id)->update([
+            'is_active' => false,
+            'is_featured' => false,
+        ]);
+
+        $stream->update([
+            'status' => 'live',
+            'is_active' => true,
+            'is_featured' => true,
+            'started_at' => $stream->started_at ?? now(),
+            'ended_at' => null,
+        ]);
+    }
+
+    /**
      * Determine whether this stream uses the Twitch JavaScript Player SDK.
      */
     public function isTwitch(): bool
     {
+        $combined = strtolower((string) $this->platform.' '.(string) $this->stream_url.' '.(string) $this->embed_url);
+
         return strtolower($this->platform) === 'twitch'
-            || str_contains(strtolower((string) $this->stream_url), 'twitch.tv');
+            || str_contains($combined, 'twitch.tv')
+            || str_contains($combined, 'twitch.player')
+            || str_contains($combined, 'twitch.embed');
     }
 
     /**
-     * Extract Twitch.Player JavaScript configuration options (channel, video, or collection).
+     * Extract Twitch.Player JavaScript configuration options (channel, video, or collection)
+     * from a pasted Twitch JS embed snippet, URL, or channel handle.
      *
      * @return array<string, mixed>
      */
     public function getTwitchPlayerOptions(?string $parentHost = null): array
     {
         $host = $parentHost ?: (request()?->getHost() ?: 'localhost');
-        $source = trim((string) ($this->stream_url ?: $this->embed_url));
+        $source = trim((string) ($this->embed_url ?: $this->stream_url));
 
         $options = [
             'width' => '100%',
@@ -254,6 +278,26 @@ class LiveStream extends Model
             'parent' => array_values(array_unique(array_filter([$host, 'localhost', '127.0.0.1']))),
         ];
 
+        // 1. Parse JavaScript embed object properties: channel: "xxx", video: "123", collection: "abc"
+        if (preg_match('/["\']?channel["\']?\s*:\s*["\']([a-zA-Z0-9_]+)["\']/i', $source, $matches)) {
+            $options['channel'] = $matches[1];
+
+            return $options;
+        }
+
+        if (preg_match('/["\']?video["\']?\s*:\s*["\']?(?:v)?(\d+)["\']?/i', $source, $matches)) {
+            $options['video'] = $matches[1];
+
+            return $options;
+        }
+
+        if (preg_match('/["\']?collection["\']?\s*:\s*["\']([a-zA-Z0-9_-]+)["\']/i', $source, $matches)) {
+            $options['collection'] = $matches[1];
+
+            return $options;
+        }
+
+        // 2. Parse URL query parameters or path segments
         if (preg_match('/(?:twitch\.tv\/videos\/|[?&]video=)(\d+)/i', $source, $matches)) {
             $options['video'] = $matches[1];
 

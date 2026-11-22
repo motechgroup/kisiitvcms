@@ -97,6 +97,7 @@ Route::middleware('auth')->group(function () {
         Route::post('/streams', [AdminLiveStreamController::class, 'store'])->name('streams.store');
         Route::patch('/streams/toggle-global-donations', [AdminLiveStreamController::class, 'toggleGlobalDonations'])->name('streams.toggle-global-donations');
         Route::put('/streams/{liveStream}', [AdminLiveStreamController::class, 'update'])->name('streams.update');
+        Route::patch('/streams/{liveStream}/activate-public', [AdminLiveStreamController::class, 'activatePublic'])->name('streams.activate-public');
         Route::patch('/streams/{liveStream}/toggle-status', [AdminLiveStreamController::class, 'toggleStatus'])->name('streams.toggle-status');
         Route::patch('/streams/{liveStream}/toggle-donations', [AdminLiveStreamController::class, 'toggleDonations'])->name('streams.toggle-donations');
         Route::delete('/streams/{liveStream}', [AdminLiveStreamController::class, 'destroy'])->name('streams.destroy');
