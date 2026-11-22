@@ -17,6 +17,8 @@ class DatabaseSeeder extends Seeder
             SiteSettingSeeder::class,
             AdminUserSeeder::class,
             NewsContentSeeder::class,
+            PaymentGatewaySeeder::class,
+            LiveStreamSeeder::class,
         ]);
     }
 }

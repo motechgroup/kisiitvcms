@@ -3,12 +3,17 @@
 use App\Http\Controllers\Admin\ArticleController as AdminArticleController;
 use App\Http\Controllers\Admin\CategoryController;
 use App\Http\Controllers\Admin\DashboardController;
+use App\Http\Controllers\Admin\DonationController as AdminDonationController;
+use App\Http\Controllers\Admin\LiveStreamController as AdminLiveStreamController;
+use App\Http\Controllers\Admin\PaymentGatewayController;
 use App\Http\Controllers\Admin\ProfileController;
 use App\Http\Controllers\Admin\SettingController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\ArticleController;
 use App\Http\Controllers\Auth\AuthController;
+use App\Http\Controllers\DonationController;
 use App\Http\Controllers\HomeController;
+use App\Http\Controllers\LiveStreamController;
 use App\Http\Controllers\PublicCategoryController;
 use App\Http\Controllers\SeoController;
 use Illuminate\Http\Request;
@@ -26,6 +31,13 @@ Route::get('/rss.xml', [SeoController::class, 'rss']);
 // Public Article & Category Routes
 Route::get('/articles/{article}', [ArticleController::class, 'show'])->name('articles.show');
 Route::get('/category/{category}', [PublicCategoryController::class, 'show'])->name('categories.show');
+
+// Public Live Streaming & Viewer Donations Routes
+Route::get('/live', [LiveStreamController::class, 'index'])->name('live.index');
+Route::get('/live/{liveStream}', [LiveStreamController::class, 'show'])->name('live.show');
+Route::post('/donations', [DonationController::class, 'store'])->name('donations.store');
+Route::get('/donations/{donation}/checkout', [DonationController::class, 'checkout'])->name('donations.checkout');
+Route::post('/donations/{donation}/complete', [DonationController::class, 'complete'])->name('donations.complete');
 
 // Guest Authentication Routes
 Route::middleware('guest')->group(function () {
@@ -79,6 +91,26 @@ Route::middleware('auth')->group(function () {
         // Site Settings, Branding & Theme Customizer
         Route::get('/settings', [SettingController::class, 'index'])->name('settings.index');
         Route::post('/settings', [SettingController::class, 'update'])->name('settings.update');
+
+        // Live Streaming Studio Management (YouTube, Facebook, Twitch)
+        Route::get('/streams', [AdminLiveStreamController::class, 'index'])->name('streams.index');
+        Route::post('/streams', [AdminLiveStreamController::class, 'store'])->name('streams.store');
+        Route::patch('/streams/toggle-global-donations', [AdminLiveStreamController::class, 'toggleGlobalDonations'])->name('streams.toggle-global-donations');
+        Route::put('/streams/{liveStream}', [AdminLiveStreamController::class, 'update'])->name('streams.update');
+        Route::patch('/streams/{liveStream}/toggle-status', [AdminLiveStreamController::class, 'toggleStatus'])->name('streams.toggle-status');
+        Route::patch('/streams/{liveStream}/toggle-donations', [AdminLiveStreamController::class, 'toggleDonations'])->name('streams.toggle-donations');
+        Route::delete('/streams/{liveStream}', [AdminLiveStreamController::class, 'destroy'])->name('streams.destroy');
+
+        // Payment Gateways Configuration (M-Pesa, Paystack, PayPal, Flutterwave)
+        Route::get('/payment-gateways', [PaymentGatewayController::class, 'index'])->name('payment-gateways.index');
+        Route::put('/payment-gateways/{paymentGateway}', [PaymentGatewayController::class, 'update'])->name('payment-gateways.update');
+        Route::patch('/payment-gateways/{paymentGateway}/toggle-active', [PaymentGatewayController::class, 'toggleActive'])->name('payment-gateways.toggle-active');
+        Route::patch('/payment-gateways/{paymentGateway}/toggle-mode', [PaymentGatewayController::class, 'toggleMode'])->name('payment-gateways.toggle-mode');
+
+        // Viewer Donations & Transactions Ledger
+        Route::get('/donations', [AdminDonationController::class, 'index'])->name('donations.index');
+        Route::patch('/donations/{donation}/status', [AdminDonationController::class, 'updateStatus'])->name('donations.update-status');
+        Route::delete('/donations/{donation}', [AdminDonationController::class, 'destroy'])->name('donations.destroy');
 
         // Staff Profile Settings & Account Information
         Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');

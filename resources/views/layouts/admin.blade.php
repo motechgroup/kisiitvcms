@@ -21,6 +21,11 @@
     <link href="https://fonts.bunny.net/css?family=instrument-sans:400,500,600,700,800|playfair-display:700,800,900&display=swap" rel="stylesheet" />
 
     @vite(['resources/css/app.css', 'resources/js/app.js'])
+    <style>
+        [x-cloak] {
+            display: none !important;
+        }
+    </style>
 </head>
 <body class="h-full font-sans-body antialiased text-slate-800" x-data="{ sidebarOpen: false }">
 
@@ -71,6 +76,27 @@
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7"/></svg>
                         <span class="flex-grow">Categories &amp; Menu</span>
                         <span class="bg-[#d9252a] text-white text-[9px] font-black px-1.5 py-0.5 rounded">Nav</span>
+                    </a>
+
+                    <div class="text-[10px] uppercase font-bold text-slate-400 tracking-wider px-3 pt-4 pb-1">
+                        Live Broadcast &amp; Monetization
+                    </div>
+
+                    <a href="{{ route('admin.streams.index') }}" class="flex items-center space-x-3 px-3 py-2.5 rounded transition {{ request()->routeIs('admin.streams.*') ? 'bg-[#1b52bc] text-white font-bold' : 'text-slate-300 hover:bg-slate-800 hover:text-white' }}">
+                        <svg class="w-4 h-4 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                        <span class="flex-grow">Live Stream Studio</span>
+                        <span class="bg-red-600 text-white text-[9px] font-black px-1.5 py-0.5 rounded animate-pulse">LIVE</span>
+                    </a>
+
+                    <a href="{{ route('admin.donations.index') }}" class="flex items-center space-x-3 px-3 py-2.5 rounded transition {{ request()->routeIs('admin.donations.*') ? 'bg-[#1b52bc] text-white font-bold' : 'text-slate-300 hover:bg-slate-800 hover:text-white' }}">
+                        <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                        <span class="flex-grow">Donations &amp; Support</span>
+                    </a>
+
+                    <a href="{{ route('admin.payment-gateways.index') }}" class="flex items-center space-x-3 px-3 py-2.5 rounded transition {{ request()->routeIs('admin.payment-gateways.*') ? 'bg-[#1b52bc] text-white font-bold' : 'text-slate-300 hover:bg-slate-800 hover:text-white' }}">
+                        <svg class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
+                        <span class="flex-grow">Payment Gateways</span>
+                        <span class="bg-emerald-800 text-emerald-200 text-[9px] font-bold px-1.5 py-0.5 rounded">4</span>
                     </a>
 
                     <div class="text-[10px] uppercase font-bold text-slate-400 tracking-wider px-3 pt-4 pb-1">

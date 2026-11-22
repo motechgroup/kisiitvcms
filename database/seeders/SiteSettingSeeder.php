@@ -44,6 +44,7 @@ class SiteSettingSeeder extends Seeder
             ['key' => 'enable_comments', 'value' => '1', 'type' => 'boolean', 'group' => 'editorial', 'description' => 'Enable reader comments globally'],
             ['key' => 'require_comment_moderation', 'value' => '1', 'type' => 'boolean', 'group' => 'editorial', 'description' => 'Require moderator approval for comments'],
             ['key' => 'breaking_ticker_enabled', 'value' => '1', 'type' => 'boolean', 'group' => 'editorial', 'description' => 'Display breaking news ticker banner'],
+            ['key' => 'live_donations_enabled', 'value' => '1', 'type' => 'boolean', 'group' => 'editorial', 'description' => 'Enable viewer donations on live streams'],
 
             // Theme Colors Defaults
             ['key' => 'primary_color', 'value' => '#1b52bc', 'type' => 'string', 'group' => 'branding', 'description' => 'Primary Brand Color'],

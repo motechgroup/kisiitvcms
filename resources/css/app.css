@@ -14,3 +14,7 @@
     --color-brand-red: #d9252a;
     --color-brand-red-dark: #b51a1f;
 }
+
+[x-cloak] {
+    display: none !important;
+}

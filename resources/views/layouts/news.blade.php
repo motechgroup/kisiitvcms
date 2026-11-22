@@ -133,6 +133,9 @@
         .editorial-subrule {
             border-bottom: 1px solid #e2e8f0;
         }
+        [x-cloak] {
+            display: none !important;
+        }
     </style>
 </head>
 <body class="min-h-full font-sans-body antialiased text-slate-900 bg-white flex flex-col justify-between selection:bg-[#d9252a] selection:text-white" x-data="{ mobileMenuOpen: false, searchOpen: false }">
@@ -174,7 +177,7 @@
 
             <!-- Right: Live Stream & Access -->
             <div class="flex items-center space-x-4">
-                <a href="#live-coverage" class="flex items-center space-x-1.5 text-red-400 hover:text-white transition font-bold text-xs uppercase tracking-wider">
+                <a href="{{ route('live.index') }}" class="flex items-center space-x-1.5 text-red-400 hover:text-white transition font-bold text-xs uppercase tracking-wider">
                     <span class="relative flex h-2 w-2">
                         <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
                         <span class="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
@@ -345,6 +348,8 @@
                                 <!-- Subcategory Dropdown -->
                                 @if($cat->children->isNotEmpty())
                                     <div x-show="open"
+                                        x-cloak
+                                        style="display: none;"
                                         x-transition:enter="transition ease-out duration-100"
                                         x-transition:enter-start="opacity-0 scale-95"
                                         x-transition:enter-end="opacity-100 scale-100"
@@ -373,6 +378,8 @@
                                 </button>
 
                                 <div x-show="open"
+                                    x-cloak
+                                    style="display: none;"
                                     x-transition:enter="transition ease-out duration-100"
                                     x-transition:enter-start="opacity-0 scale-95"
                                     x-transition:enter-end="opacity-100 scale-100"
@@ -398,8 +405,12 @@
                         @endif
                     </div>
 
-                    <!-- Search Trigger Icon -->
-                    <div class="flex items-center py-2">
+                    <!-- Search Trigger Icon & Watch Live CTA -->
+                    <div class="flex items-center space-x-3 py-1.5">
+                        <a href="{{ route('live.index') }}" class="px-2.5 py-1 bg-[#d9252a] hover:bg-red-700 text-white text-[11px] font-black uppercase tracking-wider flex items-center space-x-1.5 shadow-sm transition">
+                            <span class="w-1.5 h-1.5 rounded-full bg-white animate-ping"></span>
+                            <span>Live TV</span>
+                        </a>
                         <button type="button" @click="searchOpen = !searchOpen" class="text-slate-300 hover:text-white p-1 focus:outline-none flex items-center space-x-1 text-xs uppercase font-bold tracking-wider">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
@@ -412,7 +423,7 @@
         </nav>
 
         <!-- Dropdown Search Drawer -->
-        <div x-show="searchOpen" x-transition class="bg-slate-900 border-b border-slate-700 py-4 px-4">
+        <div x-show="searchOpen" x-cloak style="display: none;" x-transition class="bg-slate-900 border-b border-slate-700 py-4 px-4">
             <div class="max-w-3xl mx-auto">
                 <form action="#" method="GET" class="relative">
                     <input type="text" name="q" placeholder="Search breaking news, politics, business, county developments..."
@@ -425,7 +436,7 @@
         </div>
 
         <!-- Mobile Drawer -->
-        <div x-show="mobileMenuOpen" x-transition class="md:hidden bg-[#0b162c] text-white border-t border-slate-700 px-4 py-4 space-y-2">
+        <div x-show="mobileMenuOpen" x-cloak style="display: none;" x-transition class="md:hidden bg-[#0b162c] text-white border-t border-slate-700 px-4 py-4 space-y-2">
             <a href="{{ route('home') }}" class="block px-3 py-2 text-sm font-bold uppercase tracking-wider text-white bg-[#d9252a]">
                 Home
             </a>

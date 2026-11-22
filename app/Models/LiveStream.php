@@ -1,0 +1,242 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+
+class LiveStream extends Model
+{
+    use HasFactory;
+
+    protected $fillable = [
+        'title',
+        'slug',
+        'description',
+        'platform',
+        'stream_url',
+        'embed_url',
+        'thumbnail',
+        'status',
+        'is_active',
+        'is_featured',
+        'donations_enabled',
+        'donation_goal',
+        'donation_call_to_action',
+        'viewer_count',
+        'scheduled_at',
+        'started_at',
+        'ended_at',
+        'created_by',
+    ];
+
+    protected function casts(): array
+    {
+        return [
+            'is_active' => 'boolean',
+            'is_featured' => 'boolean',
+            'donations_enabled' => 'boolean',
+            'donation_goal' => 'decimal:2',
+            'viewer_count' => 'integer',
+            'scheduled_at' => 'datetime',
+            'started_at' => 'datetime',
+            'ended_at' => 'datetime',
+        ];
+    }
+
+    public function getRouteKeyName(): string
+    {
+        return 'slug';
+    }
+
+    public function creator(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function donations(): HasMany
+    {
+        return $this->hasMany(Donation::class);
+    }
+
+    public function completedDonations(): HasMany
+    {
+        return $this->hasMany(Donation::class)->where('status', 'completed');
+    }
+
+    public function scopeActive(Builder $query): Builder
+    {
+        return $query->where('is_active', true);
+    }
+
+    public function scopeLive(Builder $query): Builder
+    {
+        return $query->where('is_active', true)->where('status', 'live');
+    }
+
+    public function scopeFeatured(Builder $query): Builder
+    {
+        return $query->where('is_active', true)->where('is_featured', true);
+    }
+
+    /**
+     * Determine whether donations are active for this stream and globally.
+     */
+    public function areDonationsActive(): bool
+    {
+        return (bool) $this->donations_enabled && (bool) SiteSetting::get('live_donations_enabled', true);
+    }
+
+    /**
+     * Calculate total completed donations raised for this live stream.
+     */
+    public function totalDonationsRaised(): float
+    {
+        return (float) $this->completedDonations()->sum('amount');
+    }
+
+    /**
+     * Calculate donation goal progress percentage (0 - 100).
+     */
+    public function donationProgressPercentage(): int
+    {
+        if (! $this->donation_goal || (float) $this->donation_goal <= 0) {
+            return 0;
+        }
+
+        $percentage = (int) round(($this->totalDonationsRaised() / (float) $this->donation_goal) * 100);
+
+        return min(100, max(0, $percentage));
+    }
+
+    /**
+     * Resolve the iframe embed URL for YouTube, Twitch, or Facebook with autoplay enabled.
+     */
+    public function getComputedEmbedUrl(?string $parentHost = null): string
+    {
+        $host = $parentHost ?: (request()?->getHost() ?: 'localhost');
+
+        $url = ! empty($this->embed_url)
+            ? $this->embed_url
+            : self::resolveEmbedUrl($this->platform, $this->stream_url, $host);
+
+        return self::ensureAutoplayUrl($this->platform, $url, $host);
+    }
+
+    /**
+     * Convert a platform URL (YouTube, Twitch, Facebook) into an embeddable iframe URL with autoplay.
+     */
+    public static function resolveEmbedUrl(string $platform, string $streamUrl, string $parentHost = 'localhost'): string
+    {
+        $url = trim($streamUrl);
+        $platform = strtolower(trim($platform));
+
+        if ($platform === 'youtube') {
+            if (preg_match('/(?:youtube\.com\/(?:watch\?.*v=|live\/|shorts\/|v\/|embed\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/', $url, $matches)) {
+                return 'https://www.youtube.com/embed/'.$matches[1].'?autoplay=1&mute=1&playsinline=1&rel=0';
+            }
+
+            if (preg_match('/^[a-zA-Z0-9_-]{11}$/', $url)) {
+                return 'https://www.youtube.com/embed/'.$url.'?autoplay=1&mute=1&playsinline=1&rel=0';
+            }
+
+            return self::ensureAutoplayUrl('youtube', $url, $parentHost);
+        }
+
+        if ($platform === 'twitch') {
+            if (str_contains($url, 'player.twitch.tv')) {
+                return self::ensureAutoplayUrl('twitch', $url, $parentHost);
+            }
+
+            if (preg_match('/twitch\.tv\/videos\/(\d+)/i', $url, $matches)) {
+                return 'https://player.twitch.tv/?video='.$matches[1].'&parent='.urlencode($parentHost).'&autoplay=true';
+            }
+
+            if (preg_match('/twitch\.tv\/([a-zA-Z0-9_]+)/i', $url, $matches)) {
+                return 'https://player.twitch.tv/?channel='.$matches[1].'&parent='.urlencode($parentHost).'&autoplay=true';
+            }
+
+            if (preg_match('/^[a-zA-Z0-9_]+$/', $url)) {
+                return 'https://player.twitch.tv/?channel='.$url.'&parent='.urlencode($parentHost).'&autoplay=true';
+            }
+
+            return self::ensureAutoplayUrl('twitch', $url, $parentHost);
+        }
+
+        if ($platform === 'facebook') {
+            if (str_contains($url, 'facebook.com/plugins/video.php')) {
+                return self::ensureAutoplayUrl('facebook', $url, $parentHost);
+            }
+
+            return 'https://www.facebook.com/plugins/video.php?href='.urlencode($url).'&show_text=false&autoplay=true';
+        }
+
+        return $url;
+    }
+
+    /**
+     * Guarantee autoplay query parameters on an existing embed URL.
+     */
+    public static function ensureAutoplayUrl(string $platform, string $url, string $parentHost = 'localhost'): string
+    {
+        $platform = strtolower(trim($platform));
+
+        if ($platform === 'youtube' || str_contains($url, 'youtube.com/embed/')) {
+            if (preg_match('/youtube\.com\/embed\/([a-zA-Z0-9_-]{11})/', $url, $matches)) {
+                return 'https://www.youtube.com/embed/'.$matches[1].'?autoplay=1&mute=1&playsinline=1&rel=0';
+            }
+
+            if (! str_contains($url, 'autoplay=1')) {
+                $separator = str_contains($url, '?') ? '&' : '?';
+                $url .= $separator.'autoplay=1&mute=1&playsinline=1';
+            }
+
+            return $url;
+        }
+
+        if ($platform === 'twitch' || str_contains($url, 'player.twitch.tv')) {
+            $url = str_replace('autoplay=false', 'autoplay=true', $url);
+
+            if (! str_contains($url, 'parent=')) {
+                $separator = str_contains($url, '?') ? '&' : '?';
+                $url .= $separator.'parent='.urlencode($parentHost);
+            } else {
+                $url = preg_replace('/parent=[^&]+/', 'parent='.urlencode($parentHost), $url) ?? $url;
+            }
+
+            if (! str_contains($url, 'autoplay=')) {
+                $separator = str_contains($url, '?') ? '&' : '?';
+                $url .= $separator.'autoplay=true';
+            }
+
+            return $url;
+        }
+
+        if ($platform === 'facebook' || str_contains($url, 'facebook.com/plugins/video.php')) {
+            if (! str_contains($url, 'autoplay=')) {
+                $separator = str_contains($url, '?') ? '&' : '?';
+                $url .= $separator.'autoplay=true';
+            }
+
+            return $url;
+        }
+
+        return $url;
+    }
+
+    /**
+     * Human-readable platform label.
+     */
+    public function platformLabel(): string
+    {
+        return match ($this->platform) {
+            'youtube' => 'YouTube Live',
+            'facebook' => 'Facebook Live',
+            'twitch' => 'Twitch Stream',
+            default => 'Custom Stream',
+        };
+    }
+}
