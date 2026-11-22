@@ -270,7 +270,7 @@ try {
     $adminTestResult = 'EXCEPTION CAUGHT: '.$e->getMessage()."\nFile: ".$e->getFile().' (Line '.$e->getLine().")\n\nStack Trace:\n".$e->getTraceAsString();
 }
 
-// 7. Read latest lines of storage/logs/laravel.log
+// 7. Read latest lines of storage/logs/laravel.log (extract latest ERROR headline + snippet)
 $logPath = $basePath.'/storage/logs/laravel.log';
 $latestLogSnippet = '';
 if (file_exists($logPath)) {
@@ -278,10 +278,18 @@ if (file_exists($logPath)) {
     if ($size > 0) {
         $fp = fopen($logPath, 'r');
         if ($fp) {
-            $readBytes = min($size, 10000);
+            $readBytes = min($size, 45000);
             fseek($fp, max(0, $size - $readBytes));
-            $latestLogSnippet = fread($fp, $readBytes);
+            $chunk = fread($fp, $readBytes);
             fclose($fp);
+
+            $lastErrorPos = strrpos($chunk, '.ERROR:');
+            if ($lastErrorPos !== false) {
+                $lineStart = strrpos(substr($chunk, 0, $lastErrorPos), '[') ?: max(0, $lastErrorPos - 40);
+                $latestLogSnippet = substr($chunk, $lineStart, 3500);
+            } else {
+                $latestLogSnippet = substr($chunk, -4000);
+            }
         }
     }
 }

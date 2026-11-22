@@ -154,12 +154,8 @@ class LiveStream extends Model
         }
 
         if ($platform === 'youtube') {
-            if (preg_match('/(?:youtube\.com\/(?:watch\?.*v=|live\/|shorts\/|v\/|embed\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/', $url, $matches)) {
-                return 'https://www.youtube.com/embed/'.$matches[1].'?autoplay=1&mute=1&playsinline=1&rel=0';
-            }
-
-            if (preg_match('/^[a-zA-Z0-9_-]{11}$/', $url)) {
-                return 'https://www.youtube.com/embed/'.$url.'?autoplay=1&mute=1&playsinline=1&rel=0';
+            if ($videoId = self::extractYoutubeVideoId($url)) {
+                return 'https://www.youtube.com/embed/'.$videoId.'?autoplay=1&mute=1&playsinline=1&rel=0';
             }
 
             return self::ensureAutoplayUrl('youtube', $url, $parentHost);
@@ -211,9 +207,9 @@ class LiveStream extends Model
             $url = html_entity_decode($matches[1], ENT_QUOTES | ENT_HTML5);
         }
 
-        if ($platform === 'youtube' || str_contains($url, 'youtube.com/embed/')) {
-            if (preg_match('/youtube\.com\/embed\/([a-zA-Z0-9_-]{11})/', $url, $matches)) {
-                return 'https://www.youtube.com/embed/'.$matches[1].'?autoplay=1&mute=1&playsinline=1&rel=0';
+        if ($platform === 'youtube' || str_contains($url, 'youtube.com') || str_contains($url, 'youtu.be') || str_contains($url, 'youtube-nocookie.com')) {
+            if ($videoId = self::extractYoutubeVideoId($url)) {
+                return 'https://www.youtube.com/embed/'.$videoId.'?autoplay=1&mute=1&playsinline=1&rel=0';
             }
 
             if (! str_contains($url, 'autoplay=1')) {
@@ -252,6 +248,37 @@ class LiveStream extends Model
         }
 
         return $url;
+    }
+
+    /**
+     * Extract the 11-character YouTube video ID from any public or unlisted YouTube URL,
+     * YouTube Studio link, mobile link, shortened youtu.be link, or iframe embed code.
+     */
+    public static function extractYoutubeVideoId(string $input): ?string
+    {
+        $source = trim($input);
+
+        if (preg_match('/<iframe[^>]+src=["\']([^"\']+)["\']/i', $source, $matches)) {
+            $source = html_entity_decode($matches[1], ENT_QUOTES | ENT_HTML5);
+        }
+
+        // Match ?v=VIDEO_ID or &v=VIDEO_ID
+        if (preg_match('/[?&]v=([a-zA-Z0-9_-]{11})/', $source, $matches)) {
+            return $matches[1];
+        }
+
+        // Match youtu.be/VIDEO_ID, youtube.com/live/VIDEO_ID, youtube.com/embed/VIDEO_ID,
+        // youtube-nocookie.com/embed/VIDEO_ID, studio.youtube.com/video/VIDEO_ID, shorts/VIDEO_ID, v/VIDEO_ID
+        if (preg_match('/(?:youtu\.be\/|youtube(?:-nocookie)?\.com\/(?:live\/|embed\/|shorts\/|v\/|video\/))([a-zA-Z0-9_-]{11})/i', $source, $matches)) {
+            return $matches[1];
+        }
+
+        // Match plain 11-character video ID
+        if (preg_match('/^[a-zA-Z0-9_-]{11}$/', $source)) {
+            return $source;
+        }
+
+        return null;
     }
 
     /**

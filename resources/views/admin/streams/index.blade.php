@@ -247,11 +247,11 @@
                 <template x-if="createPlatform !== 'twitch'">
                     <div class="space-y-4">
                         <div>
-                            <label class="block font-bold uppercase text-slate-700 mb-1">Stream Watch / Video URL *</label>
+                            <label class="block font-bold uppercase text-slate-700 mb-1">Stream URL or Embed Code (Public or Unlisted YouTube / Facebook) *</label>
                             <input type="text" name="stream_url" required
-                                placeholder="Paste YouTube watch/live URL or Facebook Live video URL..."
+                                placeholder="Paste Public or Unlisted YouTube link (watch?v=, youtu.be/, youtube.com/live/, studio.youtube.com/video/...) or Facebook URL"
                                 class="w-full border border-slate-300 rounded px-3 py-2 focus:outline-none focus:border-[#1b52bc]">
-                            <p class="text-[11px] text-slate-400 mt-1">Paste any YouTube watch/live link or Facebook video link — the responsive embed player is configured automatically.</p>
+                            <p class="text-[11px] text-slate-400 mt-1">Supports both <strong>Public</strong> and <strong>Unlisted</strong> YouTube live/video links (`youtube.com/watch?v=...`, `youtu.be/...`, `youtube.com/live/...`, `studio.youtube.com/video/...`, or `&lt;iframe&gt;` code) as well as Facebook Live video links.</p>
                         </div>
                     </div>
                 </template>

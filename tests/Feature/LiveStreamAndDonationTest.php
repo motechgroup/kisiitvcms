@@ -64,6 +64,22 @@ class LiveStreamAndDonationTest extends TestCase
         $this->assertSame('https://www.youtube.com/embed/jfKfPfyJRdk?autoplay=1&mute=1&playsinline=1&rel=0', $ytStream->embed_url);
         $this->assertStringContainsString('autoplay=1&mute=1', $ytStream->getComputedEmbedUrl('localhost'));
 
+        // Verify all Unlisted YouTube link formats resolve to the autoplay embed URL
+        $unlistedUrls = [
+            'https://youtu.be/AbCdEfGhIjK?si=unlistedShareToken123',
+            'https://www.youtube.com/live/AbCdEfGhIjK?si=liveUnlistedToken456&feature=share',
+            'https://studio.youtube.com/video/AbCdEfGhIjK/livestreaming',
+            'https://www.youtube.com/watch?app=desktop&v=AbCdEfGhIjK&feature=youtu.be',
+            '<iframe width="560" height="315" src="https://www.youtube.com/embed/AbCdEfGhIjK?si=embedToken789" frameborder="0" allowfullscreen></iframe>',
+        ];
+
+        foreach ($unlistedUrls as $unlistedUrl) {
+            $this->assertSame(
+                'https://www.youtube.com/embed/AbCdEfGhIjK?autoplay=1&mute=1&playsinline=1&rel=0',
+                LiveStream::resolveEmbedUrl('youtube', $unlistedUrl)
+            );
+        }
+
         // 2. Twitch Live Stream (using only title + JavaScript Embed Code, no stream_url required)
         $twitchJsEmbed = <<<'HTML'
 <div id="twitch-embed"></div>
