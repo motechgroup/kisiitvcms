@@ -132,6 +132,12 @@ if (! isset($_GET['nopull']) && class_exists('ZipArchive') && function_exists('c
             }
             $zip->close();
             @unlink($tmpZip);
+
+            // Force delete any stale compiled Blade views on disk
+            foreach (glob($basePath.'/storage/framework/views/*.php') ?: [] as $staleView) {
+                @unlink($staleView);
+            }
+
             if (function_exists('opcache_reset')) {
                 @opcache_reset();
             }

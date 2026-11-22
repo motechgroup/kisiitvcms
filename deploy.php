@@ -179,6 +179,182 @@ class LaravelApp
         }
     }
 
+    public static function createStorageLink(): array
+    {
+        $startTime = microtime(true);
+        $target = STORAGE_PATH.'/app/public';
+        $link = BASE_PATH.'/public/storage';
+
+        try {
+            if (! file_exists($target)) {
+                @mkdir($target, 0777, true);
+            }
+            if (file_exists($link) || is_link($link)) {
+                return [
+                    'success' => true,
+                    'output' => 'Storage symlink already configured.',
+                    'duration' => round(microtime(true) - $startTime, 3),
+                ];
+            }
+            if (function_exists('symlink') && @symlink($target, $link)) {
+                return [
+                    'success' => true,
+                    'output' => 'Storage symlink created via pure PHP (no exec).',
+                    'duration' => round(microtime(true) - $startTime, 3),
+                ];
+            }
+
+            return [
+                'success' => true,
+                'output' => 'Notice: symlink() is restricted on host, using direct public uploads.',
+                'duration' => round(microtime(true) - $startTime, 3),
+            ];
+        } catch (Throwable $e) {
+            return [
+                'success' => false,
+                'output' => 'Storage notice: '.$e->getMessage(),
+                'duration' => round(microtime(true) - $startTime, 3),
+            ];
+        }
+    }
+
+    public static function pullFromGitHub(string $repo = 'motechgroup/kisiitvcms', string $branch = 'main'): array
+    {
+        $startTime = microtime(true);
+
+        if (! class_exists('ZipArchive')) {
+            return [
+                'success' => false,
+                'output' => 'ERROR: PHP ZipArchive extension is not enabled on this server.',
+                'duration' => 0,
+            ];
+        }
+
+        $zipUrl = "https://codeload.github.com/{$repo}/zip/refs/heads/{$branch}?t=".time();
+        $tmpZip = STORAGE_PATH.'/github_deploy_'.time().'.zip';
+
+        if (! is_dir(STORAGE_PATH)) {
+            @mkdir(STORAGE_PATH, 0777, true);
+        }
+
+        $zipBytes = false;
+        $httpCode = 0;
+
+        if (function_exists('curl_init')) {
+            $ch = curl_init($zipUrl);
+            curl_setopt_array($ch, [
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_FOLLOWLOCATION => true,
+                CURLOPT_TIMEOUT => 90,
+                CURLOPT_USERAGENT => 'KisiiTV-Deployer/4.0',
+                CURLOPT_SSL_VERIFYPEER => false,
+                CURLOPT_HTTPHEADER => ['Cache-Control: no-cache'],
+            ]);
+            $zipBytes = curl_exec($ch);
+            $httpCode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+        } elseif (ini_get('allow_url_fopen')) {
+            $ctx = stream_context_create([
+                'http' => ['header' => "User-Agent: KisiiTV-Deployer/4.0\r\n"],
+                'ssl' => ['verify_peer' => false, 'verify_peer_name' => false],
+            ]);
+            $zipBytes = @file_get_contents($zipUrl, false, $ctx);
+            $httpCode = $zipBytes ? 200 : 500;
+        }
+
+        if ($httpCode !== 200 || ! $zipBytes || strlen($zipBytes) < 10000) {
+            return [
+                'success' => false,
+                'output' => "ERROR: Failed to download latest code from GitHub ({$repo}@{$branch}). HTTP Status: {$httpCode}",
+                'duration' => round(microtime(true) - $startTime, 3),
+            ];
+        }
+
+        @file_put_contents($tmpZip, $zipBytes);
+
+        $zip = new ZipArchive;
+        if ($zip->open($tmpZip) !== true) {
+            @unlink($tmpZip);
+
+            return [
+                'success' => false,
+                'output' => 'ERROR: Failed to open downloaded GitHub ZIP archive.',
+                'duration' => round(microtime(true) - $startTime, 3),
+            ];
+        }
+
+        $extractedCount = 0;
+        for ($i = 0; $i < $zip->numFiles; $i++) {
+            $entryName = $zip->getNameIndex($i);
+            $slashPos = strpos($entryName, '/');
+            if ($slashPos === false) {
+                continue;
+            }
+            $relPath = substr($entryName, $slashPos + 1);
+
+            // Protect live .env, storage, and git folders
+            if (
+                $relPath === '' ||
+                str_starts_with($relPath, '.env') ||
+                str_starts_with($relPath, 'storage/') ||
+                str_starts_with($relPath, '.git/') ||
+                str_starts_with($relPath, 'public/uploads/')
+            ) {
+                continue;
+            }
+
+            $targetPath = BASE_PATH.'/'.$relPath;
+            if (substr($entryName, -1) === '/') {
+                if (! is_dir($targetPath)) {
+                    @mkdir($targetPath, 0755, true);
+                }
+
+                continue;
+            }
+
+            $parentDir = dirname($targetPath);
+            if (! is_dir($parentDir)) {
+                @mkdir($parentDir, 0755, true);
+            }
+
+            $stream = $zip->getStream($entryName);
+            if ($stream) {
+                $contents = stream_get_contents($stream);
+                fclose($stream);
+                @file_put_contents($targetPath, $contents);
+                $extractedCount++;
+            }
+        }
+
+        $zip->close();
+        @unlink($tmpZip);
+
+        // Clear compiled Blade views & framework cache files directly on disk
+        $viewsDir = STORAGE_PATH.'/framework/views';
+        if (is_dir($viewsDir)) {
+            foreach (glob($viewsDir.'/*.php') ?: [] as $viewFile) {
+                @unlink($viewFile);
+            }
+        }
+        foreach (glob(BASE_PATH.'/bootstrap/cache/*.php') ?: [] as $cacheFile) {
+            if (basename($cacheFile) !== 'packages.php' && basename($cacheFile) !== 'services.php') {
+                @unlink($cacheFile);
+            }
+        }
+
+        if (function_exists('opcache_reset')) {
+            @opcache_reset();
+        }
+
+        $duration = round(microtime(true) - $startTime, 3);
+
+        return [
+            'success' => true,
+            'output' => "Successfully pulled & extracted {$extractedCount} files from GitHub ({$repo}@{$branch}) in {$duration}s.",
+            'duration' => $duration,
+        ];
+    }
+
     public static function getStats(): array
     {
         $stats = [
@@ -292,33 +468,48 @@ if ($isAuth && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['operation'
     $op = $_POST['operation'];
 
     switch ($op) {
+        case 'github_pull_and_migrate':
         case 'full_setup':
+            // 0. Pull latest code from GitHub
+            $r0 = LaravelApp::pullFromGitHub();
             // 1. Run migrations
             $r1 = LaravelApp::artisan('migrate', ['--force' => true]);
             // 2. Run seeders
             $r2 = LaravelApp::artisan('db:seed', ['--force' => true]);
-            // 3. Storage link
-            $r3 = LaravelApp::artisan('storage:link');
+            // 3. Storage link (pure PHP, no exec)
+            $r3 = LaravelApp::createStorageLink();
             // 4. Optimize clear
             $r4 = LaravelApp::artisan('optimize:clear');
 
-            $allSuccess = ($r1['success'] && $r2['success']);
+            $allSuccess = ($r0['success'] && $r1['success'] && $r2['success']);
             $combinedOutput = "========================================\n";
+            $combinedOutput .= "⬇️ 0. GITHUB LATEST CODE SYNC (main):\n".$r0['output']."\n\n";
             $combinedOutput .= "🚀 1. DATABASE MIGRATIONS:\n".$r1['output']."\n\n";
-            $combinedOutput .= "🌱 2. DATABASE SEEDING (ARTICLES & CATEGORIES):\n".$r2['output']."\n\n";
+            $combinedOutput .= "🌱 2. DATABASE SEEDING (STREAMS, GATEWAYS & CONTENT):\n".$r2['output']."\n\n";
             $combinedOutput .= "🔗 3. STORAGE SYMLINK:\n".$r3['output']."\n\n";
             $combinedOutput .= "🧹 4. CACHE OPTIMIZATION:\n".$r4['output']."\n";
             $combinedOutput .= '========================================';
 
             $actionResult = [
                 'success' => $allSuccess,
-                'title' => $allSuccess ? '✅ Full Setup Completed Successfully!' : '⚠️ Setup Completed with Warnings',
+                'title' => $allSuccess ? '✅ GitHub Code Pulled, Migrations & Seeding Completed!' : '⚠️ Setup Completed with Warnings',
                 'output' => $combinedOutput,
+            ];
+            break;
+
+        case 'github_pull':
+            $res = LaravelApp::pullFromGitHub();
+            LaravelApp::artisan('optimize:clear');
+            $actionResult = [
+                'success' => $res['success'],
+                'title' => $res['success'] ? '✅ Latest Code Pulled from GitHub' : '❌ GitHub Pull Failed',
+                'output' => $res['output'],
             ];
             break;
 
         case 'migrate':
             $res = LaravelApp::artisan('migrate', ['--force' => true]);
+            LaravelApp::artisan('optimize:clear');
             $actionResult = [
                 'success' => $res['success'],
                 'title' => $res['success'] ? '✅ Migrations Executed' : '❌ Migration Failed',
@@ -358,12 +549,7 @@ if ($isAuth && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['operation'
             break;
 
         case 'storage_link':
-            $res = LaravelApp::artisan('storage:link');
-            // Fallback native symlink
-            if (! file_exists(BASE_PATH.'/public/storage') && file_exists(STORAGE_PATH.'/app/public')) {
-                @symlink(STORAGE_PATH.'/app/public', BASE_PATH.'/public/storage');
-                $res['output'] .= "\nNative PHP symlink created for public/storage.";
-            }
+            $res = LaravelApp::createStorageLink();
             $actionResult = [
                 'success' => $res['success'],
                 'title' => '🔗 Storage Link',
@@ -382,17 +568,18 @@ if ($isAuth && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['operation'
     }
 }
 
-// 6. Direct URL Action trigger (e.g. ?run=seed&key=...)
+// 6. Direct URL Action trigger (e.g. ?run=full&key=... or ?run=update&key=...)
 if ($isAuth && isset($_GET['run'])) {
-    if ($_GET['run'] === 'full' || $_GET['run'] === 'seed') {
+    if (in_array($_GET['run'], ['full', 'seed', 'update', 'pull'], true)) {
+        $r0 = LaravelApp::pullFromGitHub();
         $r1 = LaravelApp::artisan('migrate', ['--force' => true]);
         $r2 = LaravelApp::artisan('db:seed', ['--force' => true]);
-        LaravelApp::artisan('storage:link');
-        LaravelApp::artisan('optimize:clear');
+        $r3 = LaravelApp::createStorageLink();
+        $r4 = LaravelApp::artisan('optimize:clear');
         $actionResult = [
-            'success' => ($r1['success'] && $r2['success']),
-            'title' => '✅ Full Setup Executed via Direct Link',
-            'output' => "MIGRATIONS:\n".$r1['output']."\n\nSEEDING:\n".$r2['output'],
+            'success' => ($r0['success'] && $r1['success'] && $r2['success']),
+            'title' => '✅ GitHub Pull + Migrations + Seeding Executed via Direct Link',
+            'output' => "GITHUB SYNC:\n".$r0['output']."\n\nMIGRATIONS:\n".$r1['output']."\n\nSEEDING:\n".$r2['output']."\n\nSTORAGE:\n".$r3['output']."\n\nCACHE:\n".$r4['output'],
         ];
     }
 }
@@ -872,19 +1059,19 @@ $stats = $isAuth ? LaravelApp::getStats() : [];
         </div>
     <?php } ?>
 
-    <!-- HERO: 1-Click Complete Setup (Migrate + Seed Articles) -->
+    <!-- HERO: 1-Click Complete Setup (Pull GitHub + Migrate + Seed) -->
     <div class="hero-card">
         <div class="hero-info">
-            <h2><span>⚡</span> Complete Setup: Migrations & Content Seeding</h2>
+            <h2><span>⚡</span> 1-Click GitHub Sync, Migrations &amp; Seeding</h2>
             <p>
-                Executes everything needed in a single click: runs database migrations (`migrate --force`), populates all news articles & categories (`db:seed --force`), creates default admin accounts, generates storage symlink, and clears cache.
+                Downloads &amp; extracts the latest code directly from GitHub (`motechgroup/kisiitvcms@main`), runs database migrations (`migrate --force`), seeds live streams, payment gateways &amp; categories (`db:seed --force`), and clears all compiled view/route caches.
             </p>
         </div>
         <div>
             <form method="POST" action="">
                 <input type="hidden" name="operation" value="full_setup">
-                <button type="submit" class="btn-hero" onclick="return confirm('Run complete database setup and seed content now?');">
-                    <span>🚀 Run Full Setup & Seed Content</span>
+                <button type="submit" class="btn-hero">
+                    <span>🚀 Pull Latest GitHub Code &amp; Run Migrations</span>
                 </button>
             </form>
         </div>
@@ -948,25 +1135,25 @@ $stats = $isAuth ? LaravelApp::getStats() : [];
 
             <div class="btn-grid" style="margin-bottom:12px;">
                 <form method="POST" action="">
-                    <input type="hidden" name="operation" value="seed">
-                    <button type="submit" class="btn btn-secondary" onclick="return confirm('Seed news articles and categories?');">
-                        <span>🌱 Seed Articles</span>
+                    <input type="hidden" name="operation" value="github_pull">
+                    <button type="submit" class="btn btn-indigo">
+                        <span>⬇️ Pull GitHub Code Only</span>
                     </button>
                 </form>
 
                 <form method="POST" action="">
                     <input type="hidden" name="operation" value="migrate">
-                    <button type="submit" class="btn btn-secondary" onclick="return confirm('Run database migrations?');">
+                    <button type="submit" class="btn btn-secondary">
                         <span>🗄️ Run Migrations</span>
                     </button>
                 </form>
             </div>
 
-            <div class="btn-grid" style="margin-bottom:16px;">
+            <div class="btn-grid" style="margin-bottom:12px;">
                 <form method="POST" action="">
-                    <input type="hidden" name="operation" value="storage_link">
+                    <input type="hidden" name="operation" value="seed">
                     <button type="submit" class="btn btn-secondary">
-                        <span>🔗 Storage Link</span>
+                        <span>🌱 Run Seeders</span>
                     </button>
                 </form>
 
