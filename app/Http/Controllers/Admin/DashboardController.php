@@ -41,7 +41,7 @@ class DashboardController extends Controller
         $categories = Category::roots()
             ->withCount('articles')
             ->withSum('articles', 'view_count')
-            ->orderBy('sort_order')
+            ->orderBy('display_order')
             ->get();
 
         // 3. Breaking News & Live Coverage

@@ -477,7 +477,7 @@
                             <td class="py-3 px-4 text-center">
                                 @if($cat->is_menu)
                                     <span class="bg-blue-50 text-[#1b52bc] border border-blue-200 text-[10px] font-bold px-2 py-0.5 rounded">
-                                        Top Menu (Order: {{ $cat->sort_order }})
+                                        Top Menu (Order: {{ $cat->display_order }})
                                     </span>
                                 @else
                                     <span class="text-slate-400 text-[10px]">Archived Only</span>
