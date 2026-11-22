@@ -24,7 +24,7 @@ use Illuminate\Support\Facades\Schema;
 
 // 1. Hardening & Performance Setup
 @ini_set('display_errors', '1');
-@error_reporting(E_ALL);
+@error_reporting(E_ALL & ~E_DEPRECATED & ~E_USER_DEPRECATED);
 @ini_set('memory_limit', '256M');
 @set_time_limit(300);
 
@@ -252,7 +252,7 @@ class LaravelApp
             ]);
             $zipBytes = curl_exec($ch);
             $httpCode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
-            curl_close($ch);
+            unset($ch);
         } elseif (ini_get('allow_url_fopen')) {
             $ctx = stream_context_create([
                 'http' => ['header' => "User-Agent: KisiiTV-Deployer/4.0\r\n"],

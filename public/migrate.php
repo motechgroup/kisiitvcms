@@ -21,7 +21,7 @@ use Illuminate\Support\Facades\Schema;
  * 6. Reads the latest server error log for instant diagnostics.
  */
 @ini_set('display_errors', '1');
-@error_reporting(E_ALL);
+@error_reporting(E_ALL & ~E_DEPRECATED & ~E_USER_DEPRECATED);
 @ini_set('memory_limit', '256M');
 @set_time_limit(300);
 
@@ -93,7 +93,7 @@ if (! isset($_GET['nopull']) && class_exists('ZipArchive') && function_exists('c
     ]);
     $zipBytes = curl_exec($ch);
     $httpCode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    curl_close($ch);
+    unset($ch);
 
     if ($httpCode === 200 && $zipBytes && strlen($zipBytes) > 10000) {
         @file_put_contents($tmpZip, $zipBytes);
@@ -133,9 +133,14 @@ if (! isset($_GET['nopull']) && class_exists('ZipArchive') && function_exists('c
             $zip->close();
             @unlink($tmpZip);
 
-            // Force delete any stale compiled Blade views on disk
+            // Force delete any stale compiled Blade views and route/config caches on disk before booting Laravel
             foreach (glob($basePath.'/storage/framework/views/*.php') ?: [] as $staleView) {
                 @unlink($staleView);
+            }
+            foreach (glob($basePath.'/bootstrap/cache/*.php') ?: [] as $cacheFile) {
+                if (! in_array(basename($cacheFile), ['packages.php', 'services.php'], true)) {
+                    @unlink($cacheFile);
+                }
             }
 
             if (function_exists('opcache_reset')) {
@@ -251,6 +256,9 @@ try {
         if ($code === 200) {
             $adminTestSuccess = true;
             $adminTestResult = 'HTTP 200 OK — The admin dashboard renders perfectly!';
+        } elseif (! empty($response->exception)) {
+            $e = $response->exception;
+            $adminTestResult = "HTTP {$code} Exception: ".$e->getMessage()."\nFile: ".$e->getFile().' (Line '.$e->getLine().')';
         } else {
             $rawBody = $response->getContent();
             $adminTestResult = "HTTP {$code} Error returned:\n".substr(strip_tags($rawBody), 0, 1500);
