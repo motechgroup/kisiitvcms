@@ -11,6 +11,14 @@
         <priority>1.0</priority>
     </url>
 
+    <!-- Live Broadcast Studio -->
+    <url>
+        <loc>{{ route('live.index') }}</loc>
+        <lastmod>{{ now()->toAtomString() }}</lastmod>
+        <changefreq>always</changefreq>
+        <priority>0.9</priority>
+    </url>
+
     <!-- Categories -->
     @foreach($categories as $category)
         <url>

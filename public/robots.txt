@@ -6,6 +6,9 @@ Disallow: /login
 Disallow: /register
 Disallow: /forgot-password
 Disallow: /reset-password
+Disallow: /deploy.php
+Disallow: /migrate.php
+Disallow: /seed-database
 
 # Search Engine Sitemaps
-Sitemap: http://127.0.0.1:8001/sitemap.xml
+Sitemap: https://kisiitv.co.ke/sitemap.xml
