@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Donation;
+use App\Models\DonationCampaign;
 use App\Models\LiveStream;
 use App\Models\PaymentGateway;
 use App\Models\Role;
@@ -340,5 +341,129 @@ HTML;
         ]);
         $complete->assertRedirect(route('donations.index'));
         $this->assertSame('completed', $donation->fresh()->status);
+    }
+
+    public function test_admin_can_create_campaign_and_share_donation_link(): void
+    {
+        $response = $this->actingAs($this->superAdmin)->post(route('admin.campaigns.store'), [
+            'title' => 'County Investigative Unit 2027 Equipment Fund',
+            'target_amount' => 350000,
+            'currency' => 'KES',
+            'summary' => 'Equipping undercover reporters with reliable 4K gear.',
+            'description' => 'Detailed narrative about the need for independent community reporting.',
+            'is_active' => 1,
+            'is_featured' => 1,
+        ]);
+
+        $response->assertRedirect(route('admin.campaigns.index'));
+        $campaign = DonationCampaign::where('title', 'County Investigative Unit 2027 Equipment Fund')->firstOrFail();
+        $this->assertSame(350000.0, (float) $campaign->target_amount);
+        $this->assertTrue($campaign->is_active);
+        $this->assertTrue($campaign->is_featured);
+
+        // Verify share URL
+        $this->assertSame(route('campaigns.show', $campaign->slug), $campaign->shareUrl());
+
+        // Admin index lists the campaign and share link
+        $index = $this->actingAs($this->superAdmin)->get(route('admin.campaigns.index'));
+        $index->assertStatus(200);
+        $index->assertSee('County Investigative Unit 2027 Equipment Fund');
+        $index->assertSee($campaign->shareUrl());
+    }
+
+    public function test_donor_can_visit_campaign_link_and_donate(): void
+    {
+        $campaign = DonationCampaign::factory()->create([
+            'title' => 'Mobile Broadcast Van Project',
+            'target_amount' => 500000,
+            'is_active' => true,
+        ]);
+
+        // Public campaign page loads with progress bar & share link
+        $page = $this->get(route('campaigns.show', $campaign->slug));
+        $page->assertStatus(200);
+        $page->assertSee('Mobile Broadcast Van Project');
+        $page->assertSee('Copy Direct Link');
+        $page->assertSee('WhatsApp');
+
+        // Donate to this campaign
+        $donate = $this->post(route('donations.store'), [
+            'campaign_id' => $campaign->id,
+            'gateway_code' => 'mpesa',
+            'amount' => 5000,
+            'donor_name' => 'Eng. Zachary Onyancha',
+            'donor_phone' => '0722001122',
+            'donor_email' => 'onyancha@example.com',
+            'message' => 'Proud to support our home station!',
+        ]);
+
+        $donation = Donation::where('donor_name', 'Eng. Zachary Onyancha')->firstOrFail();
+        $this->assertSame($campaign->id, $donation->campaign_id);
+        $donate->assertRedirect(route('donations.checkout', $donation->transaction_reference));
+
+        // Checkout page shows campaign attribution
+        $checkout = $this->get(route('donations.checkout', $donation->transaction_reference));
+        $checkout->assertStatus(200);
+        $checkout->assertSee('Supporting Campaign:');
+        $checkout->assertSee('Mobile Broadcast Van Project');
+
+        // Complete payment
+        $complete = $this->post(route('donations.complete', $donation->transaction_reference), [
+            'external_reference' => 'MPESA-XYZ999',
+        ]);
+        $complete->assertRedirect(route('campaigns.show', $campaign->slug));
+
+        // Campaign stats update
+        $campaign->refresh();
+        $this->assertSame(5000.0, $campaign->totalRaised());
+        $this->assertSame(1, $campaign->donorCount());
+        $this->assertSame(1, $campaign->progressPercentage());
+    }
+
+    public function test_mpesa_stk_push_and_status_polling_endpoints(): void
+    {
+        $donation = Donation::factory()->create([
+            'gateway_code' => 'mpesa',
+            'amount' => 500,
+            'donor_phone' => '0712345678',
+            'status' => 'pending',
+        ]);
+
+        // STK push trigger
+        $stkResponse = $this->postJson(route('donations.stk-push', $donation->transaction_reference), [
+            'phone' => '0712345678',
+        ]);
+        $stkResponse->assertStatus(200);
+        $stkResponse->assertJson(['success' => true]);
+
+        // Status polling
+        $statusResponse = $this->getJson(route('donations.status', $donation->transaction_reference));
+        $statusResponse->assertStatus(200);
+        $statusResponse->assertJson([
+            'status' => 'pending',
+            'is_completed' => false,
+        ]);
+    }
+
+    public function test_payment_webhook_listener_marks_donation_completed(): void
+    {
+        $donation = Donation::factory()->create([
+            'gateway_code' => 'paystack',
+            'amount' => 1200,
+            'status' => 'pending',
+        ]);
+
+        $webhook = $this->postJson(route('donations.webhook', 'paystack'), [
+            'event' => 'charge.success',
+            'data' => [
+                'reference' => $donation->transaction_reference,
+                'status' => 'success',
+            ],
+        ]);
+
+        $webhook->assertStatus(200);
+        $donation->refresh();
+        $this->assertSame('completed', $donation->status);
+        $this->assertSame($donation->transaction_reference, $donation->external_reference);
     }
 }

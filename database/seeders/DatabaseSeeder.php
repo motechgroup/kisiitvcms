@@ -19,6 +19,7 @@ class DatabaseSeeder extends Seeder
             NewsContentSeeder::class,
             PaymentGatewaySeeder::class,
             LiveStreamSeeder::class,
+            DonationCampaignSeeder::class,
         ]);
     }
 }

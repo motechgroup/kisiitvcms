@@ -13,6 +13,7 @@ class Donation extends Model
 
     protected $fillable = [
         'live_stream_id',
+        'campaign_id',
         'payment_gateway_id',
         'gateway_code',
         'transaction_reference',
@@ -47,6 +48,11 @@ class Donation extends Model
     public function liveStream(): BelongsTo
     {
         return $this->belongsTo(LiveStream::class);
+    }
+
+    public function campaign(): BelongsTo
+    {
+        return $this->belongsTo(DonationCampaign::class, 'campaign_id');
     }
 
     public function paymentGateway(): BelongsTo

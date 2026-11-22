@@ -3,6 +3,7 @@
 use App\Http\Controllers\Admin\ArticleController as AdminArticleController;
 use App\Http\Controllers\Admin\CategoryController;
 use App\Http\Controllers\Admin\DashboardController;
+use App\Http\Controllers\Admin\DonationCampaignController as AdminCampaignController;
 use App\Http\Controllers\Admin\DonationController as AdminDonationController;
 use App\Http\Controllers\Admin\LiveStreamController as AdminLiveStreamController;
 use App\Http\Controllers\Admin\PaymentGatewayController;
@@ -11,6 +12,7 @@ use App\Http\Controllers\Admin\SettingController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\ArticleController;
 use App\Http\Controllers\Auth\AuthController;
+use App\Http\Controllers\DonationCampaignController;
 use App\Http\Controllers\DonationController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\LiveStreamController;
@@ -37,9 +39,15 @@ Route::get('/category/{category}', [PublicCategoryController::class, 'show'])->n
 Route::get('/live', [LiveStreamController::class, 'index'])->name('live.index');
 Route::get('/live/{liveStream}', [LiveStreamController::class, 'show'])->name('live.show');
 Route::get('/donate', [DonationController::class, 'index'])->name('donations.index');
+Route::get('/campaigns', [DonationCampaignController::class, 'index'])->name('campaigns.index');
+Route::get('/campaigns/{campaign:slug}', [DonationCampaignController::class, 'show'])->name('campaigns.show');
+Route::get('/donate/campaigns/{campaign:slug}', [DonationCampaignController::class, 'show']);
 Route::post('/donations', [DonationController::class, 'store'])->name('donations.store');
 Route::get('/donations/{donation}/checkout', [DonationController::class, 'checkout'])->name('donations.checkout');
+Route::post('/donations/{donation}/stk-push', [DonationController::class, 'initiateStkPush'])->name('donations.stk-push');
+Route::get('/donations/{donation}/status', [DonationController::class, 'status'])->name('donations.status');
 Route::post('/donations/{donation}/complete', [DonationController::class, 'complete'])->name('donations.complete');
+Route::any('/donations/webhook/{gateway}', [DonationController::class, 'webhook'])->name('donations.webhook');
 
 // Guest Authentication Routes
 Route::middleware('guest')->group(function () {
@@ -114,6 +122,11 @@ Route::middleware('auth')->group(function () {
         Route::get('/donations', [AdminDonationController::class, 'index'])->name('donations.index');
         Route::patch('/donations/{donation}/status', [AdminDonationController::class, 'updateStatus'])->name('donations.update-status');
         Route::delete('/donations/{donation}', [AdminDonationController::class, 'destroy'])->name('donations.destroy');
+
+        // Donation Campaigns Management (Create shareable campaign links)
+        Route::patch('/campaigns/{campaign}/toggle-active', [AdminCampaignController::class, 'toggleActive'])->name('campaigns.toggle-active');
+        Route::patch('/campaigns/{campaign}/toggle-featured', [AdminCampaignController::class, 'toggleFeatured'])->name('campaigns.toggle-featured');
+        Route::resource('campaigns', AdminCampaignController::class);
 
         // Staff Profile Settings & Account Information
         Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
