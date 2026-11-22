@@ -57,7 +57,7 @@ class SettingController extends Controller
             // Google Analytics & Search Console
             'google_analytics_enabled' => SiteSetting::get('google_analytics_enabled', false),
             'google_analytics_id' => SiteSetting::get('google_analytics_id', ''),
-            'google_site_verification' => SiteSetting::get('google_site_verification', ''),
+            'google_site_verification' => SiteSetting::get('google_site_verification', 'TVCSjm1BF7YJLuXkz3iBPhwy-ZqlctUpzsKAAh_V0LI'),
             'google_analytics_custom_script' => SiteSetting::get('google_analytics_custom_script', ''),
 
             // Google AdSense & Ad Placements

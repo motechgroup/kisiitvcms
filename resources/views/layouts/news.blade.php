@@ -10,6 +10,7 @@
     <meta name="keywords" content="{{ $metaKeywords ?? \App\Models\SiteSetting::get('site_keywords', 'Kisii TV, Amandegere Y’omogusii, Kisii News, Kenya Breaking News, Kevin Ombwori, Gusii Politics, Nyamira News, Devolution Kenya, Gusii Culture') }}">
     <meta name="author" content="{{ $authorName ?? 'Kisii TV Newsroom' }}">
     <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
+    <meta name="google-site-verification" content="TVCSjm1BF7YJLuXkz3iBPhwy-ZqlctUpzsKAAh_V0LI" />
     <link rel="canonical" href="{{ $canonicalUrl ?? url()->current() }}">
 
     <!-- Local & Regional SEO Geo Tags -->
@@ -114,7 +115,7 @@
     @stack('schema')
 
     <!-- Google Search Console Verification -->
-    @if($googleVerification = trim((string) \App\Models\SiteSetting::get('google_site_verification', '')))
+    @if(($googleVerification = trim((string) \App\Models\SiteSetting::get('google_site_verification', ''))) && $googleVerification !== 'TVCSjm1BF7YJLuXkz3iBPhwy-ZqlctUpzsKAAh_V0LI')
         <meta name="google-site-verification" content="{{ $googleVerification }}">
     @endif
 
