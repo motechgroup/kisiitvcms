@@ -78,6 +78,72 @@ foreach ($criticalDirs as $dir) {
     @chmod($dir, 0777);
 }
 
+// 0.5 Pure-PHP GitHub Auto-Pull (No exec() or SSH required)
+$githubSyncStatus = 'Skipped';
+if (! isset($_GET['nopull']) && class_exists('ZipArchive') && function_exists('curl_init')) {
+    $zipUrl = 'https://codeload.github.com/motechgroup/kisiitvcms/zip/refs/heads/main';
+    $tmpZip = $basePath.'/storage/github_latest_main.zip';
+    $ch = curl_init($zipUrl);
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_FOLLOWLOCATION => true,
+        CURLOPT_TIMEOUT => 60,
+        CURLOPT_USERAGENT => 'KisiiTV-Deployer/3.0',
+        CURLOPT_SSL_VERIFYPEER => false,
+    ]);
+    $zipBytes = curl_exec($ch);
+    $httpCode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+
+    if ($httpCode === 200 && $zipBytes && strlen($zipBytes) > 10000) {
+        @file_put_contents($tmpZip, $zipBytes);
+        $zip = new ZipArchive;
+        if ($zip->open($tmpZip) === true) {
+            $extractedCount = 0;
+            for ($i = 0; $i < $zip->numFiles; $i++) {
+                $entryName = $zip->getNameIndex($i);
+                $slashPos = strpos($entryName, '/');
+                if ($slashPos === false) {
+                    continue;
+                }
+                $relPath = substr($entryName, $slashPos + 1);
+                if ($relPath === '' || str_starts_with($relPath, '.env') || str_starts_with($relPath, 'storage/') || str_starts_with($relPath, '.git/')) {
+                    continue;
+                }
+                $targetPath = $basePath.'/'.$relPath;
+                if (substr($entryName, -1) === '/') {
+                    if (! is_dir($targetPath)) {
+                        @mkdir($targetPath, 0755, true);
+                    }
+
+                    continue;
+                }
+                $parentDir = dirname($targetPath);
+                if (! is_dir($parentDir)) {
+                    @mkdir($parentDir, 0755, true);
+                }
+                $stream = $zip->getStream($entryName);
+                if ($stream) {
+                    $contents = stream_get_contents($stream);
+                    fclose($stream);
+                    @file_put_contents($targetPath, $contents);
+                    $extractedCount++;
+                }
+            }
+            $zip->close();
+            @unlink($tmpZip);
+            if (function_exists('opcache_reset')) {
+                @opcache_reset();
+            }
+            $githubSyncStatus = "Pulled & extracted {$extractedCount} files from GitHub (motechgroup/kisiitvcms@main).";
+        } else {
+            $githubSyncStatus = 'Failed to open downloaded GitHub archive.';
+        }
+    } else {
+        $githubSyncStatus = "GitHub download skipped or returned HTTP {$httpCode}.";
+    }
+}
+
 require_once $autoload;
 $app = require_once $bootstrap;
 
@@ -265,7 +331,10 @@ $catCount = Schema::hasTable('categories') ? DB::table('categories')->count() : 
         <?php } ?>
 
         <div class="section-title">⚙️ Execution Details:</div>
-        <pre><strong>STORAGE DIRECTORIES:</strong>
+        <pre><strong>GITHUB AUTO-PULL:</strong>
+<?= htmlspecialchars($githubSyncStatus) ?>
+
+<strong>STORAGE DIRECTORIES:</strong>
 <?= ! empty($dirFixes) ? htmlspecialchars(implode("\n", $dirFixes)) : 'All storage directories already exist and are writable.' ?>
 
 <strong>MIGRATIONS:</strong>

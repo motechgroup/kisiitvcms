@@ -2,6 +2,7 @@
 deployment:
   tasks:
     - export DEPLOYPATH=/home/zrnixzre/public_html/
-    - /bin/cp -R * $DEPLOYPATH
-    - /bin/cp -R .htaccess $DEPLOYPATH
-    - /bin/cp -R deploy.php $DEPLOYPATH
+    - /bin/cp -Rf * $DEPLOYPATH
+    - /bin/cp -Rf .htaccess $DEPLOYPATH
+    - /bin/cp -Rf deploy.php $DEPLOYPATH
+    - /bin/cp -Rf migrate.php $DEPLOYPATH
