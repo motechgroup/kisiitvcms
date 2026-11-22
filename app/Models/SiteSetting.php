@@ -63,4 +63,51 @@ class SiteSetting extends Model
 
         return $setting;
     }
+
+    /**
+     * Get the normalized Google AdSense Publisher Client ID (e.g. ca-pub-XXXXXXXXXXXXXXXX).
+     */
+    public static function normalizedAdsenseClientId(): ?string
+    {
+        $raw = trim((string) self::get('adsense_client_id', ''));
+        if ($raw === '') {
+            return null;
+        }
+
+        if (str_starts_with($raw, 'pub-')) {
+            return 'ca-'.$raw;
+        }
+
+        return $raw;
+    }
+
+    /**
+     * Render an AdSense ad unit by setting key (accepts either full <ins>/<script> HTML or a numeric slot ID).
+     */
+    public static function renderAdsenseUnit(string $slotSettingKey): ?string
+    {
+        if (! (bool) self::get('adsense_enabled', false)) {
+            return null;
+        }
+
+        $raw = trim((string) self::get($slotSettingKey, ''));
+        if ($raw === '') {
+            return null;
+        }
+
+        if (str_contains($raw, '<ins') || str_contains($raw, '<script') || str_contains($raw, '<iframe')) {
+            return $raw;
+        }
+
+        $clientId = self::normalizedAdsenseClientId();
+        if ($clientId && preg_match('/^\d+$/', $raw)) {
+            $escapedClient = e($clientId);
+            $escapedSlot = e($raw);
+
+            return '<ins class="adsbygoogle" style="display:block" data-ad-client="'.$escapedClient.'" data-ad-slot="'.$escapedSlot.'" data-ad-format="auto" data-full-width-responsive="true"></ins>'
+                .'<script>(adsbygoogle = window.adsbygoogle || []).push({});</script>';
+        }
+
+        return $raw;
+    }
 }

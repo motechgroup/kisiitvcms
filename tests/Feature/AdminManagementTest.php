@@ -83,6 +83,44 @@ class AdminManagementTest extends TestCase
         $publicResponse->assertSee('Kisii TV Prime Network');
     }
 
+    public function test_super_admin_can_configure_google_adsense_and_google_analytics(): void
+    {
+        $response = $this->actingAs($this->superAdmin)->post(route('admin.settings.update'), [
+            'active_tab' => 'monetization',
+            'site_name' => 'Kisii TV',
+            'primary_color' => '#1b52bc',
+            'accent_color' => '#d9252a',
+            'header_bg_color' => '#0a1c3d',
+            'ticker_bg_color' => '#d9252a',
+            'contact_email' => 'newsroom@kisiitv.com',
+            'google_analytics_enabled' => 1,
+            'google_analytics_id' => 'G-KISIITV2026',
+            'google_site_verification' => 'gsc-verify-token-123',
+            'adsense_enabled' => 1,
+            'adsense_auto_ads' => 1,
+            'adsense_client_id' => 'ca-pub-9876543210987654',
+            'adsense_header_code' => '1122334455',
+            'adsense_sidebar_code' => '5566778899',
+        ]);
+
+        $response->assertRedirect(route('admin.settings.index', ['tab' => 'monetization']));
+
+        // Verify public homepage renders GA4, Search Console meta, AdSense Auto Ads script, and AdSense Slot Units
+        $home = $this->get(route('home'));
+        $home->assertStatus(200);
+        $home->assertSee('https://www.googletagmanager.com/gtag/js?id=G-KISIITV2026', false);
+        $home->assertSee('meta name="google-site-verification" content="gsc-verify-token-123"', false);
+        $home->assertSee('meta name="google-adsense-account" content="ca-pub-9876543210987654"', false);
+        $home->assertSee('https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-9876543210987654', false);
+        $home->assertSee('data-ad-slot="1122334455"', false);
+        $home->assertSee('data-ad-slot="5566778899"', false);
+
+        // Verify /ads.txt auto-generates the authorized digital sellers record from the publisher client ID
+        $adsTxt = $this->get(route('seo.ads-txt'));
+        $adsTxt->assertStatus(200);
+        $adsTxt->assertSee('google.com, pub-9876543210987654, DIRECT, f08c47fec0942fa0');
+    }
+
     // 2. ARTICLE MANAGEMENT TESTS
     public function test_super_admin_can_view_articles_index(): void
     {

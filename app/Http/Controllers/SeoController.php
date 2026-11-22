@@ -53,4 +53,28 @@ class SeoController extends Controller
         return response($content, 200)
             ->header('Content-Type', 'application/rss+xml; charset=utf-8');
     }
+
+    /**
+     * Serve the authorized digital sellers file (/ads.txt) for Google AdSense verification.
+     */
+    public function adsTxt(): Response
+    {
+        $customAdsTxt = trim((string) SiteSetting::get('adsense_ads_txt', ''));
+        if ($customAdsTxt !== '') {
+            return response($customAdsTxt."\n", 200)
+                ->header('Content-Type', 'text/plain; charset=utf-8');
+        }
+
+        $clientId = SiteSetting::normalizedAdsenseClientId();
+        if ($clientId) {
+            $pubId = preg_replace('/^ca-/', '', $clientId);
+            $line = "google.com, {$pubId}, DIRECT, f08c47fec0942fa0\n";
+
+            return response($line, 200)
+                ->header('Content-Type', 'text/plain; charset=utf-8');
+        }
+
+        return response("# Kisii TV Authorized Digital Sellers (ads.txt)\n", 200)
+            ->header('Content-Type', 'text/plain; charset=utf-8');
+    }
 }

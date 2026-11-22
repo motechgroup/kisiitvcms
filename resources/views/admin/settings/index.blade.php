@@ -5,7 +5,7 @@
 
 @section('content')
 <div class="space-y-6" x-data="{
-    activeTab: 'branding',
+    activeTab: '{{ request('tab', 'branding') }}',
     primaryColor: '{{ $settings['primary_color'] }}',
     accentColor: '{{ $settings['accent_color'] }}',
     headerBgColor: '{{ $settings['header_bg_color'] }}',
@@ -41,14 +41,19 @@
         <button type="button" @click="activeTab = 'social'" :class="activeTab === 'social' ? 'bg-[#1b52bc] text-white shadow' : 'text-slate-600 hover:text-slate-900'" class="px-4 py-2 rounded transition">
             4. Social Media Networks
         </button>
-        <button type="button" @click="activeTab = 'editorial'" :class="activeTab === 'editorial' ? 'bg-[#1b52bc] text-white shadow' : 'text-slate-600 hover:text-slate-900'" class="px-4 py-2 rounded transition">
+        <button type="button" @click="activeTab = 'editorial'" :class="activeTab === 'editorial' ? 'bg-[#1b52bc] text-white shadow' : 'text-slate-600 hover:text-slate-900'" class="px-4 py-2 rounded transition cursor-pointer">
             5. Editorial &amp; Tickers
+        </button>
+        <button type="button" @click="activeTab = 'monetization'" :class="activeTab === 'monetization' ? 'bg-[#1b52bc] text-white shadow' : 'text-slate-600 hover:text-slate-900'" class="px-4 py-2 rounded transition cursor-pointer flex items-center space-x-1.5">
+            <span>6. AdSense &amp; Google Analytics</span>
+            <span class="px-1.5 py-0.5 rounded bg-amber-400 text-slate-950 text-[9px] font-black uppercase">Ads &amp; GA4</span>
         </button>
     </div>
 
     <!-- Settings Form -->
     <form method="POST" action="{{ route('admin.settings.update') }}" enctype="multipart/form-data" class="bg-white border border-slate-200 rounded-lg shadow-sm p-6 lg:p-8 space-y-6">
         @csrf
+        <input type="hidden" name="active_tab" :value="activeTab">
 
         <!-- ============================================== -->
         <!-- TAB 1: BRANDING & IDENTITY                     -->
@@ -344,6 +349,151 @@
                         <span class="text-[11px] text-slate-500">Comments must be approved by an editor before becoming visible publicly.</span>
                     </div>
                 </label>
+            </div>
+        </div>
+
+        <!-- ============================================== -->
+        <!-- TAB 6: GOOGLE ADSENSE & GOOGLE ANALYTICS (GA4) -->
+        <!-- ============================================== -->
+        <div x-show="activeTab === 'monetization'" x-cloak class="space-y-8">
+            <div class="border-b border-slate-200 pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                    <h3 class="text-sm font-extrabold uppercase tracking-wider text-slate-900 font-headline">Google AdSense &amp; Google Analytics Configuration</h3>
+                    <p class="text-xs text-slate-500 mt-0.5">Configure Google AdSense publisher monetization, ad slot units, <code>ads.txt</code>, and Google Analytics (GA4) visitor telemetry.</p>
+                </div>
+                <a href="{{ route('seo.ads-txt') }}" target="_blank" class="text-xs font-bold text-[#1b52bc] hover:underline shrink-0">
+                    Preview /ads.txt &rarr;
+                </a>
+            </div>
+
+            <!-- 1. GOOGLE ANALYTICS (GA4) & SEARCH CONSOLE -->
+            <div class="p-5 bg-slate-50 border border-slate-200 rounded-xl space-y-5">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200">
+                    <div>
+                        <span class="text-[10px] font-black uppercase tracking-widest text-[#1b52bc] block">Audience &amp; Traffic Telemetry</span>
+                        <h4 class="text-sm font-extrabold text-slate-900 font-headline">Google Analytics 4 (GA4) &amp; Search Console</h4>
+                    </div>
+                    <label class="inline-flex items-center space-x-2 px-3 py-1.5 rounded bg-white border border-slate-300 cursor-pointer">
+                        <input type="checkbox" name="google_analytics_enabled" value="1" {{ $settings['google_analytics_enabled'] ? 'checked' : '' }}
+                            class="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500">
+                        <span class="text-xs font-bold text-slate-800">Enable Google Analytics</span>
+                    </label>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    <div>
+                        <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                            Google Analytics Measurement ID (GA4)
+                        </label>
+                        <input type="text" name="google_analytics_id" value="{{ old('google_analytics_id', $settings['google_analytics_id']) }}"
+                            placeholder="e.g. G-XXXXXXXXXX"
+                            class="w-full text-xs p-2.5 font-mono border border-slate-300 rounded bg-white focus:border-[#1b52bc]">
+                        <span class="text-[10px] text-slate-400 mt-1 block">Automatically injects the official Google tag (<code>gtag.js</code>) across all public pages.</span>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                            Google Search Console Verification Code (Optional)
+                        </label>
+                        <input type="text" name="google_site_verification" value="{{ old('google_site_verification', $settings['google_site_verification']) }}"
+                            placeholder="Paste content value from <meta name='google-site-verification' content='...'>"
+                            class="w-full text-xs p-2.5 font-mono border border-slate-300 rounded bg-white focus:border-[#1b52bc]">
+                        <span class="text-[10px] text-slate-400 mt-1 block">Renders <code>&lt;meta name="google-site-verification" content="..."&gt;</code> in the site header.</span>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                        Custom Analytics / Google Tag Manager Script (Optional)
+                    </label>
+                    <textarea name="google_analytics_custom_script" rows="3"
+                        placeholder="Optional: Paste custom Google Tag Manager or third-party analytics <script> snippet..."
+                        class="w-full text-xs p-2.5 font-mono border border-slate-300 rounded bg-white focus:border-[#1b52bc]">{{ old('google_analytics_custom_script', $settings['google_analytics_custom_script']) }}</textarea>
+                </div>
+            </div>
+
+            <!-- 2. GOOGLE ADSENSE MONETIZATION -->
+            <div class="p-5 bg-amber-50/40 border border-amber-200 rounded-xl space-y-5">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-amber-200">
+                    <div>
+                        <span class="text-[10px] font-black uppercase tracking-widest text-amber-700 block">Ad Network Monetization</span>
+                        <h4 class="text-sm font-extrabold text-slate-900 font-headline">Google AdSense Auto Ads &amp; Display Ad Units</h4>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-3">
+                        <label class="inline-flex items-center space-x-2 px-3 py-1.5 rounded bg-white border border-slate-300 cursor-pointer">
+                            <input type="checkbox" name="adsense_auto_ads" value="1" {{ $settings['adsense_auto_ads'] ? 'checked' : '' }}
+                                class="rounded border-slate-300 text-amber-600 focus:ring-amber-500">
+                            <span class="text-xs font-bold text-slate-800">Enable Auto Ads Script</span>
+                        </label>
+                        <label class="inline-flex items-center space-x-2 px-3 py-1.5 rounded bg-white border border-emerald-400 cursor-pointer">
+                            <input type="checkbox" name="adsense_enabled" value="1" {{ $settings['adsense_enabled'] ? 'checked' : '' }}
+                                class="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500">
+                            <span class="text-xs font-bold text-slate-900">Enable Google AdSense</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    <div>
+                        <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                            AdSense Publisher Client ID
+                        </label>
+                        <input type="text" name="adsense_client_id" value="{{ old('adsense_client_id', $settings['adsense_client_id']) }}"
+                            placeholder="e.g. ca-pub-1234567890123456"
+                            class="w-full text-xs p-2.5 font-mono border border-slate-300 rounded bg-white focus:border-[#1b52bc]">
+                        <span class="text-[10px] text-slate-500 mt-1 block">Automatically loads <code>adsbygoogle.js?client=ca-pub-...</code> and populates <code>/ads.txt</code>.</span>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                            Custom AdSense <code>&lt;head&gt;</code> Verification Script (Optional)
+                        </label>
+                        <textarea name="adsense_head_script" rows="2"
+                            placeholder="Optional: Paste custom <script async src='https://pagead2.googlesyndication.com/...'></script> if needed"
+                            class="w-full text-xs p-2.5 font-mono border border-slate-300 rounded bg-white focus:border-[#1b52bc]">{{ old('adsense_head_script', $settings['adsense_head_script']) }}</textarea>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-5 pt-2 border-t border-amber-200/60">
+                    <div>
+                        <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                            Top Header Leaderboard Slot (728x90)
+                        </label>
+                        <textarea name="adsense_header_code" rows="4"
+                            placeholder="Paste AdSense <ins class='adsbygoogle'>... code OR numeric data-ad-slot ID"
+                            class="w-full text-xs p-2.5 font-mono border border-slate-300 rounded bg-white focus:border-[#1b52bc]">{{ old('adsense_header_code', $settings['adsense_header_code']) }}</textarea>
+                        <span class="text-[10px] text-slate-500 mt-1 block">Replaces the top 728x90 header banner when filled.</span>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                            Sidebar MREC Ad Slot (300x250)
+                        </label>
+                        <textarea name="adsense_sidebar_code" rows="4"
+                            placeholder="Paste AdSense <ins class='adsbygoogle'>... code OR numeric data-ad-slot ID"
+                            class="w-full text-xs p-2.5 font-mono border border-slate-300 rounded bg-white focus:border-[#1b52bc]">{{ old('adsense_sidebar_code', $settings['adsense_sidebar_code']) }}</textarea>
+                        <span class="text-[10px] text-slate-500 mt-1 block">Displayed in the sidebar on homepage, articles, and categories.</span>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                            In-Article &amp; Mid-Feed Ad Slot
+                        </label>
+                        <textarea name="adsense_in_article_code" rows="4"
+                            placeholder="Paste AdSense <ins class='adsbygoogle'>... code OR numeric data-ad-slot ID"
+                            class="w-full text-xs p-2.5 font-mono border border-slate-300 rounded bg-white focus:border-[#1b52bc]">{{ old('adsense_in_article_code', $settings['adsense_in_article_code']) }}</textarea>
+                        <span class="text-[10px] text-slate-500 mt-1 block">Displayed inside article stories and homepage mid-feed billboard.</span>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                        Authorized Digital Sellers (<code>/ads.txt</code>) Content (Optional)
+                    </label>
+                    <textarea name="adsense_ads_txt" rows="2"
+                        placeholder="google.com, pub-0000000000000000, DIRECT, f08c47fec0942fa0 (Auto-generated from Publisher Client ID if left blank)"
+                        class="w-full text-xs p-2.5 font-mono border border-slate-300 rounded bg-white focus:border-[#1b52bc]">{{ old('adsense_ads_txt', $settings['adsense_ads_txt']) }}</textarea>
+                </div>
             </div>
         </div>
 

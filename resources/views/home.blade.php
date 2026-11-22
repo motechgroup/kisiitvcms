@@ -236,7 +236,11 @@
                 <!-- Ad Placement: 300x250 Medium Rectangle -->
                 <div class="w-full bg-slate-100 border border-slate-200 p-2 text-center">
                     <span class="text-[9px] font-bold uppercase tracking-widest text-slate-400 block mb-1">Sponsored Content</span>
-                    @if(isset($sidebarAd) && $sidebarAd)
+                    @if($adsenseSidebarUnit = \App\Models\SiteSetting::renderAdsenseUnit('adsense_sidebar_code'))
+                        <div class="w-full min-h-[250px] flex items-center justify-center overflow-hidden">
+                            {!! $adsenseSidebarUnit !!}
+                        </div>
+                    @elseif(isset($sidebarAd) && $sidebarAd)
                         <a href="{{ $sidebarAd->target_url }}" target="_blank" rel="noopener" class="block overflow-hidden group">
                             <img src="{{ $sidebarAd->image_path }}" alt="{{ $sidebarAd->title }}" class="w-full h-auto object-cover group-hover:opacity-95 transition">
                         </a>
@@ -419,7 +423,11 @@
     <section class="my-8 py-2">
         <div class="w-full bg-slate-50 border border-slate-200 p-2 text-center max-w-5xl mx-auto">
             <span class="text-[9px] font-bold uppercase tracking-widest text-slate-400 block mb-1">Sponsored Commercial Feature</span>
-            @if(isset($contentAd) && $contentAd)
+            @if($adsenseInArticleUnit = \App\Models\SiteSetting::renderAdsenseUnit('adsense_in_article_code'))
+                <div class="w-full min-h-[120px] flex items-center justify-center overflow-hidden">
+                    {!! $adsenseInArticleUnit !!}
+                </div>
+            @elseif(isset($contentAd) && $contentAd)
                 <a href="{{ $contentAd->target_url }}" target="_blank" rel="noopener" class="block overflow-hidden group">
                     <img src="{{ $contentAd->image_path }}" alt="{{ $contentAd->title }}" class="w-full h-auto max-h-56 object-cover mx-auto">
                 </a>

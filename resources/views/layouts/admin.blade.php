@@ -99,6 +99,12 @@
                         <span class="bg-emerald-800 text-emerald-200 text-[9px] font-bold px-1.5 py-0.5 rounded">4</span>
                     </a>
 
+                    <a href="{{ route('admin.settings.index', ['tab' => 'monetization']) }}" class="flex items-center space-x-3 px-3 py-2.5 rounded transition {{ request()->routeIs('admin.settings.*') && request('tab') === 'monetization' ? 'bg-[#1b52bc] text-white font-bold' : 'text-slate-300 hover:bg-slate-800 hover:text-white' }}">
+                        <svg class="w-4 h-4 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z"/></svg>
+                        <span class="flex-grow">AdSense &amp; Analytics</span>
+                        <span class="bg-sky-900 text-sky-200 text-[9px] font-bold px-1.5 py-0.5 rounded">GA4</span>
+                    </a>
+
                     <div class="text-[10px] uppercase font-bold text-slate-400 tracking-wider px-3 pt-4 pb-1">
                         Administration &amp; System
                     </div>

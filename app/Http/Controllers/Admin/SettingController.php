@@ -53,6 +53,22 @@ class SettingController extends Controller
             'breaking_ticker_enabled' => SiteSetting::get('breaking_ticker_enabled', true),
             'enable_comments' => SiteSetting::get('enable_comments', true),
             'require_comment_moderation' => SiteSetting::get('require_comment_moderation', true),
+
+            // Google Analytics & Search Console
+            'google_analytics_enabled' => SiteSetting::get('google_analytics_enabled', false),
+            'google_analytics_id' => SiteSetting::get('google_analytics_id', ''),
+            'google_site_verification' => SiteSetting::get('google_site_verification', ''),
+            'google_analytics_custom_script' => SiteSetting::get('google_analytics_custom_script', ''),
+
+            // Google AdSense & Ad Placements
+            'adsense_enabled' => SiteSetting::get('adsense_enabled', false),
+            'adsense_auto_ads' => SiteSetting::get('adsense_auto_ads', true),
+            'adsense_client_id' => SiteSetting::get('adsense_client_id', ''),
+            'adsense_head_script' => SiteSetting::get('adsense_head_script', ''),
+            'adsense_header_code' => SiteSetting::get('adsense_header_code', ''),
+            'adsense_sidebar_code' => SiteSetting::get('adsense_sidebar_code', ''),
+            'adsense_in_article_code' => SiteSetting::get('adsense_in_article_code', ''),
+            'adsense_ads_txt' => SiteSetting::get('adsense_ads_txt', ''),
         ];
 
         return view('admin.settings.index', compact('settings'));
@@ -102,6 +118,22 @@ class SettingController extends Controller
             'breaking_ticker_enabled' => 'nullable|boolean',
             'enable_comments' => 'nullable|boolean',
             'require_comment_moderation' => 'nullable|boolean',
+
+            // Google Analytics & Search Console
+            'google_analytics_enabled' => 'nullable|boolean',
+            'google_analytics_id' => 'nullable|string|max:50',
+            'google_site_verification' => 'nullable|string|max:255',
+            'google_analytics_custom_script' => 'nullable|string|max:5000',
+
+            // Google AdSense
+            'adsense_enabled' => 'nullable|boolean',
+            'adsense_auto_ads' => 'nullable|boolean',
+            'adsense_client_id' => 'nullable|string|max:100',
+            'adsense_head_script' => 'nullable|string|max:5000',
+            'adsense_header_code' => 'nullable|string|max:5000',
+            'adsense_sidebar_code' => 'nullable|string|max:5000',
+            'adsense_in_article_code' => 'nullable|string|max:5000',
+            'adsense_ads_txt' => 'nullable|string|max:5000',
         ]);
 
         // Handle Site Logo upload or URL
@@ -152,6 +184,15 @@ class SettingController extends Controller
             'social_tiktok' => ['string', 'social'],
             'social_instagram' => ['string', 'social'],
             'social_whatsapp' => ['string', 'social'],
+            'google_analytics_id' => ['string', 'analytics'],
+            'google_site_verification' => ['string', 'analytics'],
+            'google_analytics_custom_script' => ['text', 'analytics'],
+            'adsense_client_id' => ['string', 'monetization'],
+            'adsense_head_script' => ['text', 'monetization'],
+            'adsense_header_code' => ['text', 'monetization'],
+            'adsense_sidebar_code' => ['text', 'monetization'],
+            'adsense_in_article_code' => ['text', 'monetization'],
+            'adsense_ads_txt' => ['text', 'monetization'],
         ];
 
         foreach ($keysToSave as $key => [$type, $group]) {
@@ -164,7 +205,14 @@ class SettingController extends Controller
         SiteSetting::set('breaking_ticker_enabled', $request->boolean('breaking_ticker_enabled'), 'boolean', 'editorial');
         SiteSetting::set('enable_comments', $request->boolean('enable_comments'), 'boolean', 'editorial');
         SiteSetting::set('require_comment_moderation', $request->boolean('require_comment_moderation'), 'boolean', 'editorial');
+        SiteSetting::set('google_analytics_enabled', $request->boolean('google_analytics_enabled'), 'boolean', 'analytics');
+        SiteSetting::set('adsense_enabled', $request->boolean('adsense_enabled'), 'boolean', 'monetization');
+        SiteSetting::set('adsense_auto_ads', $request->boolean('adsense_auto_ads'), 'boolean', 'monetization');
 
-        return redirect()->route('admin.settings.index')->with('success', 'Site settings, theme colors, and branding updated successfully!');
+        $tab = $request->input('active_tab');
+        $redirectParams = ($tab && $tab !== 'branding') ? ['tab' => $tab] : [];
+
+        return redirect()->route('admin.settings.index', $redirectParams)
+            ->with('success', 'Site settings, AdSense, Google Analytics, and branding updated successfully!');
     }
 }

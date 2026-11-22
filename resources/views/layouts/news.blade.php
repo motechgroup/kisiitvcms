@@ -113,6 +113,40 @@
     </script>
     @stack('schema')
 
+    <!-- Google Search Console Verification -->
+    @if($googleVerification = trim((string) \App\Models\SiteSetting::get('google_site_verification', '')))
+        <meta name="google-site-verification" content="{{ $googleVerification }}">
+    @endif
+
+    <!-- Google Analytics 4 (GA4) & Custom Analytics -->
+    @if((bool) \App\Models\SiteSetting::get('google_analytics_enabled', false))
+        @if($gaMeasurementId = trim((string) \App\Models\SiteSetting::get('google_analytics_id', '')))
+            <script async src="https://www.googletagmanager.com/gtag/js?id={{ urlencode($gaMeasurementId) }}"></script>
+            <script>
+                window.dataLayer = window.dataLayer || [];
+                function gtag(){dataLayer.push(arguments);}
+                gtag('js', new Date());
+                gtag('config', '{{ addslashes($gaMeasurementId) }}');
+            </script>
+        @endif
+        @if($gaCustomScript = trim((string) \App\Models\SiteSetting::get('google_analytics_custom_script', '')))
+            {!! $gaCustomScript !!}
+        @endif
+    @endif
+
+    <!-- Google AdSense Auto Ads & Head Script -->
+    @if((bool) \App\Models\SiteSetting::get('adsense_enabled', false))
+        @if($adsenseClientId = \App\Models\SiteSetting::normalizedAdsenseClientId())
+            <meta name="google-adsense-account" content="{{ $adsenseClientId }}">
+            @if((bool) \App\Models\SiteSetting::get('adsense_auto_ads', true))
+                <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client={{ urlencode($adsenseClientId) }}" crossorigin="anonymous"></script>
+            @endif
+        @endif
+        @if($adsenseHeadScript = trim((string) \App\Models\SiteSetting::get('adsense_head_script', '')))
+            {!! $adsenseHeadScript !!}
+        @endif
+    @endif
+
     <style>
         :root {
             --brand-primary: {{ \App\Models\SiteSetting::get('primary_color', '#1b52bc') }};
@@ -295,7 +329,11 @@
 
             <!-- Top Header Ad Placement (728x90) -->
             <div class="hidden lg:block w-[728px] h-[90px] bg-slate-50 border border-slate-200 relative overflow-hidden group">
-                @if(isset($headerAd) && $headerAd)
+                @if($adsenseHeaderUnit = \App\Models\SiteSetting::renderAdsenseUnit('adsense_header_code'))
+                    <div class="w-full h-full flex items-center justify-center overflow-hidden">
+                        {!! $adsenseHeaderUnit !!}
+                    </div>
+                @elseif(isset($headerAd) && $headerAd)
                     <a href="{{ $headerAd->target_url }}" target="_blank" rel="noopener" class="block w-full h-full">
                         @if($headerAd->creative_type === 'image')
                             <img src="{{ $headerAd->image_path }}" alt="{{ $headerAd->title }}" class="w-full h-full object-cover">

@@ -27,6 +27,7 @@ Route::get('/', [HomeController::class, 'index'])->name('home');
 Route::get('/sitemap.xml', [SeoController::class, 'sitemap'])->name('seo.sitemap');
 Route::get('/feed', [SeoController::class, 'rss'])->name('seo.rss');
 Route::get('/rss.xml', [SeoController::class, 'rss']);
+Route::get('/ads.txt', [SeoController::class, 'adsTxt'])->name('seo.ads-txt');
 
 // Public Article & Category Routes
 Route::get('/articles/{article}', [ArticleController::class, 'show'])->name('articles.show');

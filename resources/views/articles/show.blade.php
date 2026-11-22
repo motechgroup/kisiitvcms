@@ -214,6 +214,16 @@
                 {!! $article->content !!}
             </div>
 
+            <!-- In-Article AdSense Placement -->
+            @if($adsenseInArticleUnit = \App\Models\SiteSetting::renderAdsenseUnit('adsense_in_article_code'))
+                <div class="w-full bg-slate-50 border border-slate-200 p-2 text-center my-6">
+                    <span class="text-[9px] font-bold uppercase tracking-widest text-slate-400 block mb-1">Advertisement</span>
+                    <div class="w-full min-h-[100px] flex items-center justify-center overflow-hidden">
+                        {!! $adsenseInArticleUnit !!}
+                    </div>
+                </div>
+            @endif
+
             <!-- Article Tags -->
             @if($article->tags->isNotEmpty())
                 <div class="pt-6 border-t border-slate-200">
@@ -272,7 +282,11 @@
             <!-- Sidebar Ad (300x250) -->
             <div class="w-full bg-slate-100 border border-slate-200 p-2 text-center">
                 <span class="text-[9px] font-bold uppercase tracking-widest text-slate-400 block mb-1">Sponsored Content</span>
-                @if(isset($sidebarAd) && $sidebarAd)
+                @if($adsenseSidebarUnit = \App\Models\SiteSetting::renderAdsenseUnit('adsense_sidebar_code'))
+                    <div class="w-full min-h-[250px] flex items-center justify-center overflow-hidden">
+                        {!! $adsenseSidebarUnit !!}
+                    </div>
+                @elseif(isset($sidebarAd) && $sidebarAd)
                     <a href="{{ $sidebarAd->target_url }}" target="_blank" rel="noopener" class="block overflow-hidden group">
                         <img src="{{ $sidebarAd->image_path }}" alt="{{ $sidebarAd->title }}" class="w-full h-auto object-cover group-hover:opacity-95 transition">
                     </a>
