@@ -81,15 +81,16 @@ foreach ($criticalDirs as $dir) {
 // 0.5 Pure-PHP GitHub Auto-Pull (No exec() or SSH required)
 $githubSyncStatus = 'Skipped';
 if (! isset($_GET['nopull']) && class_exists('ZipArchive') && function_exists('curl_init')) {
-    $zipUrl = 'https://codeload.github.com/motechgroup/kisiitvcms/zip/refs/heads/main';
+    $zipUrl = 'https://codeload.github.com/motechgroup/kisiitvcms/zip/refs/heads/main?t='.time();
     $tmpZip = $basePath.'/storage/github_latest_main.zip';
     $ch = curl_init($zipUrl);
     curl_setopt_array($ch, [
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_FOLLOWLOCATION => true,
         CURLOPT_TIMEOUT => 60,
-        CURLOPT_USERAGENT => 'KisiiTV-Deployer/3.0',
+        CURLOPT_USERAGENT => 'KisiiTV-Deployer/4.0',
         CURLOPT_SSL_VERIFYPEER => false,
+        CURLOPT_HTTPHEADER => ['Cache-Control: no-cache'],
     ]);
     $zipBytes = curl_exec($ch);
     $httpCode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
@@ -126,7 +127,16 @@ if (! isset($_GET['nopull']) && class_exists('ZipArchive') && function_exists('c
                 if ($stream) {
                     $contents = stream_get_contents($stream);
                     fclose($stream);
+                    if (file_exists($targetPath)) {
+                        if (function_exists('opcache_invalidate')) {
+                            @opcache_invalidate($targetPath, true);
+                        }
+                        @unlink($targetPath);
+                    }
                     @file_put_contents($targetPath, $contents);
+                    if (function_exists('opcache_invalidate')) {
+                        @opcache_invalidate($targetPath, true);
+                    }
                     $extractedCount++;
                 }
             }

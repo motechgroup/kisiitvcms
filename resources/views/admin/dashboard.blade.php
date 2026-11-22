@@ -475,7 +475,7 @@
                                 {{ number_format((int) $cat->articles_sum_view_count) }}
                             </td>
                             <td class="py-3 px-4 text-center">
-                                @if($cat->is_menu)
+                                @if($cat->show_in_menu)
                                     <span class="bg-blue-50 text-[#1b52bc] border border-blue-200 text-[10px] font-bold px-2 py-0.5 rounded">
                                         Top Menu (Order: {{ $cat->display_order }})
                                     </span>

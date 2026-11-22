@@ -321,7 +321,16 @@ class LaravelApp
             if ($stream) {
                 $contents = stream_get_contents($stream);
                 fclose($stream);
+                if (file_exists($targetPath)) {
+                    if (function_exists('opcache_invalidate')) {
+                        @opcache_invalidate($targetPath, true);
+                    }
+                    @unlink($targetPath);
+                }
                 @file_put_contents($targetPath, $contents);
+                if (function_exists('opcache_invalidate')) {
+                    @opcache_invalidate($targetPath, true);
+                }
                 $extractedCount++;
             }
         }
