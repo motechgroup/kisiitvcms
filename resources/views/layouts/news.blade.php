@@ -173,7 +173,7 @@
         }
     </style>
 </head>
-<body class="min-h-full font-sans-body antialiased text-slate-900 bg-white flex flex-col justify-between selection:bg-[#d9252a] selection:text-white" x-data="{ mobileMenuOpen: false, searchOpen: false }">
+<body class="min-h-full font-sans-body antialiased text-slate-900 bg-white flex flex-col justify-between selection:bg-[#d9252a] selection:text-white" x-data="{ mobileMenuOpen: false, searchOpen: false, globalDonateOpen: false, globalAmount: '500', globalGateway: 'mpesa' }" @open-donate-modal.window="globalDonateOpen = true; if ($event.detail && $event.detail.amount) globalAmount = $event.detail.amount; if ($event.detail && $event.detail.gateway) globalGateway = $event.detail.gateway;">
 
     <!-- 1. TOP UTILITY / DESK BAR -->
     <div class="bg-[#0b162c] text-white text-xs border-b border-slate-800">
@@ -211,7 +211,14 @@
             </div>
 
             <!-- Right: Live Stream & Access -->
-            <div class="flex items-center space-x-4">
+            <div class="flex items-center space-x-3 sm:space-x-4">
+                <a href="{{ route('donations.index') }}" @click.prevent="$dispatch('open-donate-modal')" class="flex items-center space-x-1.5 text-emerald-400 hover:text-emerald-300 transition font-bold text-xs uppercase tracking-wider cursor-pointer">
+                    <svg class="w-3.5 h-3.5 fill-current text-emerald-400" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+                    <span>Support Kisii TV</span>
+                </a>
+
+                <span class="text-slate-600">|</span>
+
                 <a href="{{ route('live.index') }}" class="flex items-center space-x-1.5 text-red-400 hover:text-white transition font-bold text-xs uppercase tracking-wider">
                     <span class="relative flex h-2 w-2">
                         <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
@@ -444,12 +451,18 @@
                         @endif
                     </div>
 
-                    <!-- Search Trigger Icon & Watch Live CTA -->
-                    <div class="flex items-center space-x-3 py-1.5">
-                        <a href="{{ route('live.index') }}" class="px-2.5 py-1 bg-[#d9252a] hover:bg-red-700 text-white text-[11px] font-black uppercase tracking-wider flex items-center space-x-1.5 shadow-sm transition">
+                    <!-- Search Trigger Icon, Donate CTA & Watch Live CTA -->
+                    <div class="flex items-center space-x-2 sm:space-x-2.5 py-1.5">
+                        <a href="{{ route('donations.index') }}" @click.prevent="$dispatch('open-donate-modal')" class="px-2.5 sm:px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-black uppercase tracking-wider flex items-center space-x-1.5 shadow-sm transition rounded cursor-pointer">
+                            <svg class="w-3.5 h-3.5 fill-current text-white shrink-0" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+                            <span>Donate</span>
+                        </a>
+
+                        <a href="{{ route('live.index') }}" class="px-2.5 py-1 bg-[#d9252a] hover:bg-red-700 text-white text-[11px] font-black uppercase tracking-wider flex items-center space-x-1.5 shadow-sm transition rounded">
                             <span class="w-1.5 h-1.5 rounded-full bg-white animate-ping"></span>
                             <span>Live TV</span>
                         </a>
+
                         <button type="button" @click="searchOpen = !searchOpen" class="text-slate-300 hover:text-white p-1 focus:outline-none flex items-center space-x-1 text-xs uppercase font-bold tracking-wider">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
@@ -475,8 +488,19 @@
         </div>
 
         <!-- Mobile Drawer -->
-        <div x-show="mobileMenuOpen" x-cloak style="display: none;" x-transition class="md:hidden bg-[#0b162c] text-white border-t border-slate-700 px-4 py-4 space-y-2">
-            <a href="{{ route('home') }}" class="block px-3 py-2 text-sm font-bold uppercase tracking-wider text-white bg-[#d9252a]">
+        <div x-show="mobileMenuOpen" x-cloak style="display: none;" x-transition class="md:hidden bg-[#0b162c] text-white border-t border-slate-700 px-4 py-4 space-y-2.5">
+            <div class="grid grid-cols-2 gap-2 pb-2 border-b border-slate-800">
+                <a href="{{ route('donations.index') }}" @click="mobileMenuOpen = false; $dispatch('open-donate-modal')" class="px-3 py-2 text-center text-xs font-black uppercase tracking-wider text-white bg-emerald-600 hover:bg-emerald-500 rounded flex items-center justify-center space-x-1.5 transition shadow cursor-pointer">
+                    <svg class="w-3.5 h-3.5 fill-current text-white" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+                    <span>Support Kisii TV</span>
+                </a>
+                <a href="{{ route('live.index') }}" class="px-3 py-2 text-center text-xs font-black uppercase tracking-wider text-white bg-[#d9252a] hover:bg-red-700 rounded flex items-center justify-center space-x-1.5 transition shadow">
+                    <span class="w-2 h-2 rounded-full bg-white animate-ping"></span>
+                    <span>Watch Live</span>
+                </a>
+            </div>
+
+            <a href="{{ route('home') }}" class="block px-3 py-2 text-sm font-bold uppercase tracking-wider text-white bg-slate-800 rounded">
                 Home
             </a>
             @foreach($navCategories as $cat)
@@ -714,6 +738,10 @@
             <div class="pt-6 flex flex-col md:flex-row items-center justify-between text-xs text-slate-500 gap-4">
                 <p>&copy; {{ date('Y') }} {{ \App\Models\SiteSetting::get('footer_copyright', 'Kisii TV Media Network (Amandegere Y’Omogusii). All rights reserved.') }}</p>
                 <div class="flex flex-wrap items-center gap-x-5 gap-y-2">
+                    <a href="{{ route('donations.index') }}" @click.prevent="$dispatch('open-donate-modal')" class="text-emerald-400 hover:text-emerald-300 font-bold transition flex items-center space-x-1">
+                        <svg class="w-3 h-3 fill-current" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+                        <span>Support Kisii TV</span>
+                    </a>
                     <a href="{{ route('seo.sitemap') }}" class="hover:text-slate-300 transition flex items-center space-x-1">
                         <span>Sitemap (XML)</span>
                     </a>
@@ -729,6 +757,148 @@
             </div>
         </div>
     </footer>
+
+    <!-- Global Donation / Support Kisii TV Modal -->
+    @php
+        $globalActiveGateways = \App\Models\PaymentGateway::where('is_active', true)->orderBy('display_order')->get();
+    @endphp
+    @if((bool) \App\Models\SiteSetting::get('live_donations_enabled', true) && $globalActiveGateways->isNotEmpty())
+        <div x-show="globalDonateOpen"
+            x-cloak
+            style="display: none;"
+            class="fixed inset-0 z-50 overflow-y-auto bg-black/85 backdrop-blur-sm flex items-center justify-center p-4"
+            x-transition:enter="transition ease-out duration-200"
+            x-transition:enter-start="opacity-0"
+            x-transition:enter-end="opacity-100"
+            x-transition:leave="transition ease-in duration-150"
+            x-transition:leave-start="opacity-100"
+            x-transition:leave-end="opacity-0">
+
+            <div @click.outside="globalDonateOpen = false"
+                class="bg-slate-900 border-2 border-emerald-500/40 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden my-8">
+
+                <!-- Modal Header -->
+                <div class="bg-[#0a1c3d] px-6 py-4 border-b border-slate-800 flex items-start justify-between gap-4">
+                    <div class="flex items-center space-x-2.5">
+                        <div class="w-9 h-9 rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 shrink-0">
+                            <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+                        </div>
+                        <div>
+                            <span class="inline-block bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded">
+                                Independent Journalism Fund
+                            </span>
+                            <h2 class="text-base sm:text-lg font-black font-headline text-white leading-tight mt-0.5">
+                                Support Kisii TV Newsroom
+                            </h2>
+                        </div>
+                    </div>
+                    <button type="button" @click="globalDonateOpen = false"
+                        class="text-slate-400 hover:text-white text-2xl font-bold leading-none p-1 cursor-pointer">
+                        &times;
+                    </button>
+                </div>
+
+                <!-- Modal Body -->
+                <div class="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
+                    <form method="POST" action="{{ route('donations.store') }}" class="space-y-4 text-left">
+                        @csrf
+
+                        <!-- Preset Amounts -->
+                        <div>
+                            <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-300 mb-2">
+                                1. Select or Enter Amount (KES)
+                            </label>
+                            <div class="grid grid-cols-4 gap-2 mb-2">
+                                @foreach([200, 500, 1000, 5000] as $preset)
+                                    <button type="button"
+                                        @click="globalAmount = '{{ $preset }}'"
+                                        :class="globalAmount == '{{ $preset }}' ? 'bg-emerald-600 text-white border-emerald-400 shadow ring-1 ring-emerald-400' : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700'"
+                                        class="py-2 px-1 text-xs font-black rounded-lg border transition text-center cursor-pointer">
+                                        {{ number_format($preset) }}
+                                    </button>
+                                @endforeach
+                            </div>
+                            <div class="relative">
+                                <span class="absolute left-3 top-2.5 text-slate-500 font-mono text-xs font-bold">KES</span>
+                                <input type="number" name="amount" x-model="globalAmount" min="10" step="any" required
+                                    placeholder="Enter custom amount..."
+                                    class="w-full bg-slate-950 border border-slate-700 focus:border-emerald-500 rounded-lg pl-12 pr-3 py-2 text-xs font-bold text-white focus:outline-none">
+                            </div>
+                        </div>
+
+                        <!-- Gateways -->
+                        <div>
+                            <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-300 mb-2">
+                                2. Choose Payment Method
+                            </label>
+                            <div class="grid grid-cols-2 gap-2">
+                                @foreach($globalActiveGateways as $gw)
+                                    <label @click="globalGateway = '{{ $gw->code }}'"
+                                        :class="globalGateway === '{{ $gw->code }}' ? 'border-emerald-400 bg-emerald-950/40 text-white' : 'border-slate-700 bg-slate-950/60 text-slate-300 hover:border-slate-600'"
+                                        class="border-2 rounded-lg p-2.5 cursor-pointer transition flex flex-col justify-between">
+                                        <div class="flex items-center justify-between">
+                                            <input type="radio" name="gateway_code" value="{{ $gw->code }}" x-model="globalGateway" class="sr-only">
+                                            <span class="text-xs font-black uppercase tracking-wide">{{ $gw->code === 'mpesa' ? 'M-Pesa' : ucfirst($gw->code) }}</span>
+                                            <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-800 text-emerald-300">{{ $gw->currency }}</span>
+                                        </div>
+                                        <span class="text-[10px] text-slate-400 mt-1 line-clamp-1">{{ $gw->provider_label ?? $gw->name }}</span>
+                                    </label>
+                                @endforeach
+                            </div>
+                        </div>
+
+                        <!-- Supporter Info -->
+                        <div class="space-y-3 pt-1">
+                            <div>
+                                <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-300 mb-1">Your Full Name *</label>
+                                <input type="text" name="donor_name" value="{{ old('donor_name', auth()->user()?->name) }}" required
+                                    placeholder="e.g. Douglas Mogaka"
+                                    class="w-full bg-slate-950 border border-slate-700 focus:border-emerald-500 rounded-lg px-3 py-2 text-xs text-white focus:outline-none">
+                            </div>
+
+                            <div x-show="globalGateway === 'mpesa'" x-cloak>
+                                <label class="block text-[11px] font-bold uppercase tracking-wider text-emerald-400 mb-1">M-Pesa Mobile Number * (For STK Push)</label>
+                                <input type="text" name="donor_phone" value="{{ old('donor_phone') }}"
+                                    placeholder="e.g. 0712345678 or 254712345678"
+                                    class="w-full bg-slate-950 border border-emerald-500/60 focus:border-emerald-400 rounded-lg px-3 py-2 text-xs text-white focus:outline-none">
+                            </div>
+
+                            <div>
+                                <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-300 mb-1">Email Address (Optional)</label>
+                                <input type="email" name="donor_email" value="{{ old('donor_email', auth()->user()?->email) }}"
+                                    placeholder="you@example.com"
+                                    class="w-full bg-slate-950 border border-slate-700 focus:border-emerald-500 rounded-lg px-3 py-2 text-xs text-white focus:outline-none">
+                            </div>
+
+                            <div>
+                                <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-300 mb-1">Words of Support (Optional)</label>
+                                <textarea name="message" rows="2" placeholder="Leave a brief message for the newsroom..."
+                                    class="w-full bg-slate-950 border border-slate-700 focus:border-emerald-500 rounded-lg px-3 py-2 text-xs text-white focus:outline-none">{{ old('message') }}</textarea>
+                            </div>
+
+                            <label class="flex items-center space-x-2 text-xs text-slate-400 cursor-pointer">
+                                <input type="checkbox" name="is_anonymous" value="1" {{ old('is_anonymous') ? 'checked' : '' }}
+                                    class="rounded bg-slate-950 border-slate-700 text-emerald-600 focus:ring-0">
+                                <span>Make contribution anonymous</span>
+                            </label>
+                        </div>
+
+                        <div class="flex items-center justify-end space-x-3 pt-3 border-t border-slate-800">
+                            <button type="button" @click="globalDonateOpen = false"
+                                class="px-4 py-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition cursor-pointer">
+                                Close
+                            </button>
+                            <button type="submit"
+                                class="py-2.5 px-5 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs uppercase tracking-wider rounded-lg shadow-lg transition cursor-pointer flex items-center space-x-2">
+                                <span>Complete Kisii TV Donation</span>
+                                <span>&rarr;</span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    @endif
 
 </body>
 </html>

@@ -19,6 +19,14 @@
         <priority>0.9</priority>
     </url>
 
+    <!-- Support & Donations Portal -->
+    <url>
+        <loc>{{ route('donations.index') }}</loc>
+        <lastmod>{{ now()->toAtomString() }}</lastmod>
+        <changefreq>weekly</changefreq>
+        <priority>0.8</priority>
+    </url>
+
     <!-- Categories -->
     @foreach($categories as $category)
         <url>

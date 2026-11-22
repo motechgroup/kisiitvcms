@@ -16,6 +16,23 @@ use Illuminate\View\View;
 class DonationController extends Controller
 {
     /**
+     * Display the public donation & supporter portal.
+     */
+    public function index(): View
+    {
+        PaymentGateway::ensureDefaultsExist();
+
+        $activeGateways = PaymentGateway::active()->get();
+        $breakingNews = BreakingNews::active()->get();
+        $navCategories = Category::roots()
+            ->menu()
+            ->with(['children' => fn ($q) => $q->menu()])
+            ->get();
+
+        return view('donations.index', compact('activeGateways', 'breakingNews', 'navCategories'));
+    }
+
+    /**
      * Initiate a new viewer donation via M-Pesa, Paystack, PayPal, or Flutterwave.
      */
     public function store(Request $request): RedirectResponse
@@ -129,7 +146,7 @@ class DonationController extends Controller
                 ->with('success', "Thank you, {$donation->displayName()}! Your {$donation->currency} ".number_format((float) $donation->amount, 2).' contribution via '.strtoupper($donation->gateway_code)." (Ref: {$donation->transaction_reference}) has been received.");
         }
 
-        return redirect()->route('live.index')
-            ->with('success', "Thank you, {$donation->displayName()}! Your {$donation->currency} ".number_format((float) $donation->amount, 2).' contribution via '.strtoupper($donation->gateway_code)." (Ref: {$donation->transaction_reference}) has been received.");
+        return redirect()->route('donations.index')
+            ->with('success', "Thank you, {$donation->displayName()}! Your {$donation->currency} ".number_format((float) $donation->amount, 2).' contribution to Kisii TV via '.strtoupper($donation->gateway_code)." (Ref: {$donation->transaction_reference}) has been received. Thank you for powering independent journalism!");
     }
 }

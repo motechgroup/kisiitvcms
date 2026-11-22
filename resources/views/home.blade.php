@@ -175,6 +175,52 @@
     </section>
 
     <!-- ======================================================== -->
+    <!-- SUPPORT KISII TV EDITORIAL FUND (COMMUNITY SUPPORT BANNER) -->
+    <!-- ======================================================== -->
+    <section class="my-6 bg-gradient-to-r from-[#0a1c3d] via-[#102a5c] to-[#0a1c3d] text-white p-5 sm:p-6 rounded-xl border-l-4 border-emerald-500 shadow-lg">
+        <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-5">
+            <div class="space-y-1.5 max-w-2xl">
+                <div class="flex items-center space-x-2">
+                    <span class="bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[10px] font-black uppercase tracking-widest px-2.5 py-0.5 rounded">
+                        Support Fearless Journalism
+                    </span>
+                    <span class="text-xs text-slate-300">• Powered by Kisii TV Readers</span>
+                </div>
+                <h3 class="text-lg sm:text-xl font-black font-headline text-white leading-tight">
+                    Help Kisii TV Keep In-Depth County Investigations &amp; Live News Free For All
+                </h3>
+                <p class="text-xs sm:text-sm text-slate-300 leading-relaxed">
+                    We rely on reader support to send reporters into the field, cover county barazas, and broadcast breaking news live without paywalls. Support us via M-Pesa, Card, or PayPal.
+                </p>
+            </div>
+
+            <!-- Quick Donate CTA and Preset Chips -->
+            <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 shrink-0">
+                <div class="grid grid-cols-3 gap-1.5">
+                    <button type="button" @click="$dispatch('open-donate-modal', { amount: 200 })"
+                        class="px-2.5 py-1.5 rounded bg-slate-900/80 border border-slate-700 hover:border-emerald-400 text-xs font-bold text-slate-200 hover:text-white transition cursor-pointer">
+                        KES 200
+                    </button>
+                    <button type="button" @click="$dispatch('open-donate-modal', { amount: 500 })"
+                        class="px-2.5 py-1.5 rounded bg-slate-900/80 border border-slate-700 hover:border-emerald-400 text-xs font-bold text-slate-200 hover:text-white transition cursor-pointer">
+                        KES 500
+                    </button>
+                    <button type="button" @click="$dispatch('open-donate-modal', { amount: 1000 })"
+                        class="px-2.5 py-1.5 rounded bg-slate-900/80 border border-slate-700 hover:border-emerald-400 text-xs font-bold text-slate-200 hover:text-white transition cursor-pointer">
+                        KES 1,000
+                    </button>
+                </div>
+
+                <a href="{{ route('donations.index') }}" @click.prevent="$dispatch('open-donate-modal')"
+                    class="px-5 py-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs uppercase tracking-wider shadow-xl transition flex items-center justify-center space-x-2 cursor-pointer whitespace-nowrap">
+                    <svg class="w-4 h-4 fill-current text-white" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+                    <span>Donate to Kisii TV</span>
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- ======================================================== -->
     <!-- SECTION 2: 3-COLUMN WIRE (LATEST, MOST READ, SIDEBAR AD) -->
     <!-- ======================================================== -->
     <section class="py-8 border-b border-slate-200">
@@ -269,6 +315,25 @@
                             </span>
                         @endforeach
                     </div>
+                </div>
+
+                <!-- Support Kisii TV Patron Sidebar Card -->
+                <div class="bg-gradient-to-br from-slate-900 to-[#0a1c3d] border-2 border-emerald-500/40 rounded-xl p-4 text-white shadow-md space-y-3">
+                    <div class="flex items-center justify-between">
+                        <span class="text-[10px] font-black uppercase tracking-widest text-emerald-400">Support Our Desk</span>
+                        <span class="text-[9px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300">M-Pesa 174379</span>
+                    </div>
+                    <div>
+                        <h4 class="text-sm font-bold font-headline text-white">Stand With Independent Journalism</h4>
+                        <p class="text-xs text-slate-300 mt-1 leading-relaxed">
+                            Support Kisii TV's ground reporting, investigative scoops, and community broadcasts across Kenya.
+                        </p>
+                    </div>
+                    <a href="{{ route('donations.index') }}" @click.prevent="$dispatch('open-donate-modal')"
+                        class="w-full py-2.5 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs uppercase tracking-wider text-center flex items-center justify-center space-x-1.5 shadow transition cursor-pointer">
+                        <svg class="w-3.5 h-3.5 fill-current text-white" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+                        <span>Support Kisii TV Now</span>
+                    </a>
                 </div>
 
                 <!-- Bureau Desk Alert -->

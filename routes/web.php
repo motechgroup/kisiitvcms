@@ -36,6 +36,7 @@ Route::get('/category/{category}', [PublicCategoryController::class, 'show'])->n
 // Public Live Streaming & Viewer Donations Routes
 Route::get('/live', [LiveStreamController::class, 'index'])->name('live.index');
 Route::get('/live/{liveStream}', [LiveStreamController::class, 'show'])->name('live.show');
+Route::get('/donate', [DonationController::class, 'index'])->name('donations.index');
 Route::post('/donations', [DonationController::class, 'store'])->name('donations.store');
 Route::get('/donations/{donation}/checkout', [DonationController::class, 'checkout'])->name('donations.checkout');
 Route::post('/donations/{donation}/complete', [DonationController::class, 'complete'])->name('donations.complete');

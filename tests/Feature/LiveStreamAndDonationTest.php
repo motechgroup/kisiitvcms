@@ -294,4 +294,51 @@ HTML;
         $this->assertSame(strtoupper($gatewayCode).'-TX-998877', $donation->external_reference);
         $this->assertNotNull($donation->paid_at);
     }
+
+    public function test_homepage_and_navigation_display_donate_buttons(): void
+    {
+        $response = $this->get(route('home'));
+        $response->assertStatus(200);
+        $response->assertSee('Donate');
+        $response->assertSee('Support Kisii TV');
+        $response->assertSee(route('donations.index'));
+        $response->assertSee('open-donate-modal');
+        $response->assertSee('Help Kisii TV Keep In-Depth County Investigations &amp; Live News Free For All', false);
+    }
+
+    public function test_viewer_can_view_donation_portal_and_make_general_donation(): void
+    {
+        $portal = $this->get(route('donations.index'));
+        $portal->assertStatus(200);
+        $portal->assertSee('Support Kisii TV Newsroom');
+        $portal->assertSee('174379');
+        $portal->assertSee('KISIITV');
+
+        // Initiate general donation (without live_stream_id)
+        $store = $this->post(route('donations.store'), [
+            'gateway_code' => 'mpesa',
+            'amount' => 1000,
+            'donor_name' => 'Mama Moraa',
+            'donor_email' => 'moraa@example.com',
+            'donor_phone' => '0712345678',
+            'message' => 'Keep telling our stories!',
+        ]);
+
+        $donation = Donation::where('donor_name', 'Mama Moraa')->firstOrFail();
+        $this->assertNull($donation->live_stream_id);
+        $store->assertRedirect(route('donations.checkout', $donation->transaction_reference));
+
+        // Checkout page displays general checkout
+        $checkout = $this->get(route('donations.checkout', $donation->transaction_reference));
+        $checkout->assertStatus(200);
+        $checkout->assertSee('Mama Moraa');
+        $checkout->assertSee('1,000.00');
+
+        // Complete general checkout
+        $complete = $this->post(route('donations.complete', $donation->transaction_reference), [
+            'external_reference' => 'QA8819283K',
+        ]);
+        $complete->assertRedirect(route('donations.index'));
+        $this->assertSame('completed', $donation->fresh()->status);
+    }
 }
