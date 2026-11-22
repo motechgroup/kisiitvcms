@@ -104,8 +104,8 @@
             <div class="space-y-5 sm:space-y-6">
                 <div class="w-full bg-black border border-slate-800 sm:border-2 shadow-2xl overflow-hidden rounded-md sm:rounded-lg">
                     <div class="relative w-full aspect-video max-h-[80vh] mx-auto" style="aspect-ratio: 16 / 9;">
-                        @if($activeStream->isTwitch())
-                            <!-- Twitch Interactive JavaScript Video Player (No Manual Iframe) -->
+                        @if($activeStream->usesTwitchJsPlayer())
+                            <!-- Twitch Interactive JavaScript Video Player -->
                             <div id="kisiitv-twitch-player" class="absolute inset-0 w-full h-full"></div>
                             <script src="https://player.twitch.tv/js/embed/v1.js"></script>
                             <script>
@@ -150,6 +150,7 @@
                             </script>
                         @else
                             <iframe
+                                id="kisiitv-live-iframe"
                                 src="{{ $activeStream->getComputedEmbedUrl(request()->getHost()) }}"
                                 title="{{ $activeStream->title }}"
                                 class="absolute inset-0 w-full h-full border-0"
@@ -157,6 +158,24 @@
                                 referrerpolicy="strict-origin-when-cross-origin"
                                 allowfullscreen>
                             </iframe>
+                            @if($activeStream->usesTwitchIframe())
+                                <script>
+                                    (function () {
+                                        if (window.location.hostname === '0.0.0.0' || window.location.hostname === '127.0.0.1') {
+                                            window.location.replace(window.location.href.replace(window.location.hostname, 'localhost'));
+                                            return;
+                                        }
+                                        var iframe = document.getElementById('kisiitv-live-iframe');
+                                        if (iframe && iframe.src && iframe.src.indexOf('player.twitch.tv') !== -1) {
+                                            var currentHost = window.location.hostname || 'localhost';
+                                            var updatedSrc = iframe.src.replace(/parent=[^&]+/, 'parent=' + encodeURIComponent(currentHost));
+                                            if (updatedSrc !== iframe.src) {
+                                                iframe.src = updatedSrc;
+                                            }
+                                        }
+                                    })();
+                                </script>
+                            @endif
                         @endif
                     </div>
                 </div>

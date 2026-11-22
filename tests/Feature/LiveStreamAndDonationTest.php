@@ -105,6 +105,30 @@ HTML;
         $this->assertTrue($ytStream->fresh()->is_active);
         $this->assertFalse($twitchStream->fresh()->is_active);
 
+        // 2b. Twitch Live Stream using HTML <iframe> code instead of JavaScript
+        $twitchIframeCode = '<iframe src="https://player.twitch.tv/?channel=strogo&parent=www.example.com" frameborder="0" allowfullscreen="true" scrolling="no" height="378" width="620"></iframe>';
+        $twitchIframeResp = $this->actingAs($this->superAdmin)->post(route('admin.streams.store'), [
+            'title' => 'Kisii TV Twitch Iframe Stream',
+            'platform' => 'twitch',
+            'embed_url' => $twitchIframeCode,
+            'is_active' => 1,
+            'donations_enabled' => 1,
+        ]);
+
+        $twitchIframeResp->assertRedirect(route('admin.streams.index'));
+        $twitchIframeStream = LiveStream::where('title', 'Kisii TV Twitch Iframe Stream')->firstOrFail();
+        $this->assertTrue($twitchIframeStream->usesTwitchIframe());
+        $this->assertFalse($twitchIframeStream->usesTwitchJsPlayer());
+        $this->assertSame(
+            'https://player.twitch.tv/?channel=strogo&parent=kisiitv.co.ke&autoplay=true',
+            $twitchIframeStream->getComputedEmbedUrl('kisiitv.co.ke')
+        );
+
+        $twitchIframePublicPage = $this->get(route('live.index'));
+        $twitchIframePublicPage->assertStatus(200);
+        $twitchIframePublicPage->assertSee('id="kisiitv-live-iframe"', false);
+        $twitchIframePublicPage->assertSee('https://player.twitch.tv/?channel=strogo&amp;parent=localhost&amp;autoplay=true', false);
+
         // 3. Facebook Live Stream
         $fbUrl = 'https://www.facebook.com/KisiitvAmandegere/videos/123456789012345';
         $fbResponse = $this->actingAs($this->superAdmin)->post(route('admin.streams.store'), [

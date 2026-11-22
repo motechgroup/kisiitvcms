@@ -118,21 +118,40 @@ class LiveStream extends Model
     public function getComputedEmbedUrl(?string $parentHost = null): string
     {
         $host = $parentHost ?: (request()?->getHost() ?: 'localhost');
+        if (in_array($host, ['0.0.0.0', '127.0.0.1', '::1'], true)) {
+            $host = 'localhost';
+        }
 
-        $url = ! empty($this->embed_url)
+        $rawUrl = ! empty($this->embed_url)
             ? $this->embed_url
-            : self::resolveEmbedUrl($this->platform, $this->stream_url, $host);
+            : $this->stream_url;
 
-        return self::ensureAutoplayUrl($this->platform, $url, $host);
+        // If an HTML <iframe ... src="..."> snippet was pasted, extract its src URL
+        if (preg_match('/<iframe[^>]+src=["\']([^"\']+)["\']/i', (string) $rawUrl, $matches)) {
+            $rawUrl = html_entity_decode($matches[1], ENT_QUOTES | ENT_HTML5);
+        } else {
+            $rawUrl = self::resolveEmbedUrl($this->platform, (string) $rawUrl, $host);
+        }
+
+        return self::ensureAutoplayUrl($this->platform, (string) $rawUrl, $host);
     }
 
     /**
-     * Convert a platform URL (YouTube, Twitch, Facebook) into an embeddable iframe URL with autoplay.
+     * Convert a platform URL or iframe snippet (YouTube, Twitch, Facebook) into an embeddable iframe URL with autoplay.
      */
     public static function resolveEmbedUrl(string $platform, string $streamUrl, string $parentHost = 'localhost'): string
     {
         $url = trim($streamUrl);
         $platform = strtolower(trim($platform));
+
+        if (in_array($parentHost, ['0.0.0.0', '127.0.0.1', '::1'], true)) {
+            $parentHost = 'localhost';
+        }
+
+        // Extract src attribute if an <iframe> HTML tag was provided
+        if (preg_match('/<iframe[^>]+src=["\']([^"\']+)["\']/i', $url, $matches)) {
+            $url = html_entity_decode($matches[1], ENT_QUOTES | ENT_HTML5);
+        }
 
         if ($platform === 'youtube') {
             if (preg_match('/(?:youtube\.com\/(?:watch\?.*v=|live\/|shorts\/|v\/|embed\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/', $url, $matches)) {
@@ -183,6 +202,14 @@ class LiveStream extends Model
     public static function ensureAutoplayUrl(string $platform, string $url, string $parentHost = 'localhost'): string
     {
         $platform = strtolower(trim($platform));
+
+        if (in_array($parentHost, ['0.0.0.0', '127.0.0.1', '::1'], true)) {
+            $parentHost = 'localhost';
+        }
+
+        if (preg_match('/<iframe[^>]+src=["\']([^"\']+)["\']/i', $url, $matches)) {
+            $url = html_entity_decode($matches[1], ENT_QUOTES | ENT_HTML5);
+        }
 
         if ($platform === 'youtube' || str_contains($url, 'youtube.com/embed/')) {
             if (preg_match('/youtube\.com\/embed\/([a-zA-Z0-9_-]{11})/', $url, $matches)) {
@@ -247,7 +274,7 @@ class LiveStream extends Model
     }
 
     /**
-     * Determine whether this stream uses the Twitch JavaScript Player SDK.
+     * Determine whether this stream is a Twitch stream.
      */
     public function isTwitch(): bool
     {
@@ -257,6 +284,28 @@ class LiveStream extends Model
             || str_contains($combined, 'twitch.tv')
             || str_contains($combined, 'twitch.player')
             || str_contains($combined, 'twitch.embed');
+    }
+
+    /**
+     * Determine whether the admin provided an HTML <iframe> embed for Twitch.
+     */
+    public function usesTwitchIframe(): bool
+    {
+        if (! $this->isTwitch()) {
+            return false;
+        }
+
+        $combined = strtolower((string) $this->embed_url.' '.(string) $this->stream_url);
+
+        return str_contains($combined, '<iframe');
+    }
+
+    /**
+     * Determine whether this Twitch stream should be rendered via the Twitch.Player JavaScript SDK.
+     */
+    public function usesTwitchJsPlayer(): bool
+    {
+        return $this->isTwitch() && ! $this->usesTwitchIframe();
     }
 
     /**

@@ -224,21 +224,21 @@
                     <label class="block font-bold uppercase text-slate-700 mb-1">Streaming Platform *</label>
                     <select name="platform" x-model="createPlatform" required class="w-full border border-slate-300 rounded px-3 py-2 bg-white focus:outline-none focus:border-[#1b52bc]">
                         <option value="youtube">YouTube Live</option>
-                        <option value="twitch">Twitch (JavaScript Video Player Embed)</option>
+                        <option value="twitch">Twitch (JavaScript or Iframe Embed)</option>
                         <option value="facebook">Facebook Live</option>
                         <option value="custom">Custom Embed URL</option>
                     </select>
                 </div>
 
-                <!-- TWITCH SETTINGS: ONLY EMBED CODE REQUIRED (NO CHANNEL URL REQUIRED) -->
+                <!-- TWITCH SETTINGS: JAVASCRIPT OR IFRAME EMBED CODE (NO CHANNEL URL REQUIRED) -->
                 <template x-if="createPlatform === 'twitch'">
                     <div class="bg-purple-50/60 border border-purple-200 rounded-lg p-4 space-y-2">
-                        <label class="block font-bold uppercase text-purple-900">Twitch Video Player JavaScript Embed Code *</label>
+                        <label class="block font-bold uppercase text-purple-900">Twitch Embed Code (JavaScript or Iframe) *</label>
                         <textarea name="embed_url" rows="6" required
-                            placeholder='<div id="twitch-embed"></div>&#10;<script src="https://player.twitch.tv/js/embed/v1.js"></script>&#10;<script type="text/javascript">&#10;  new Twitch.Player("twitch-embed", {&#10;    channel: "your_twitch_channel"&#10;  });&#10;</script>'
+                            placeholder='Paste either Twitch Iframe code:&#10;<iframe src="https://player.twitch.tv/?channel=strogo&parent=www.example.com" frameborder="0" allowfullscreen="true" scrolling="no" height="378" width="620"></iframe>&#10;&#10;OR Twitch JavaScript code:&#10;<script src="https://player.twitch.tv/js/embed/v1.js"></script>...'
                             class="w-full border border-purple-300 rounded px-3 py-2 font-mono text-[11px] bg-white focus:outline-none focus:border-purple-600"></textarea>
                         <p class="text-[11px] text-purple-700">
-                            Paste your Twitch JavaScript video player embed code (or Twitch channel handle). No channel URL is required — the player automatically adapts to the site domain and plays responsively.
+                            Paste either a Twitch <code>&lt;iframe src="https://player.twitch.tv/..."&gt;&lt;/iframe&gt;</code> tag or the Twitch JavaScript embed snippet. The <code>parent</code> domain and responsive 16:9 sizing are configured automatically.
                         </p>
                     </div>
                 </template>
@@ -314,20 +314,20 @@
                         <label class="block font-bold uppercase text-slate-700 mb-1">Streaming Platform *</label>
                         <select name="platform" x-model="activeStream.platform" required class="w-full border border-slate-300 rounded px-3 py-2 bg-white focus:outline-none focus:border-[#1b52bc]">
                             <option value="youtube">YouTube Live</option>
-                            <option value="twitch">Twitch (JavaScript Video Player Embed)</option>
+                            <option value="twitch">Twitch (JavaScript or Iframe Embed)</option>
                             <option value="facebook">Facebook Live</option>
                             <option value="custom">Custom Embed URL</option>
                         </select>
                     </div>
 
-                    <!-- TWITCH SETTINGS: ONLY EMBED CODE REQUIRED -->
+                    <!-- TWITCH SETTINGS: JAVASCRIPT OR IFRAME EMBED CODE -->
                     <template x-if="activeStream.platform === 'twitch'">
                         <div class="bg-purple-50/60 border border-purple-200 rounded-lg p-4 space-y-2">
-                            <label class="block font-bold uppercase text-purple-900">Twitch Video Player JavaScript Embed Code *</label>
+                            <label class="block font-bold uppercase text-purple-900">Twitch Embed Code (JavaScript or Iframe) *</label>
                             <textarea name="embed_url" x-model="activeStream.embed_url" rows="6" required
                                 class="w-full border border-purple-300 rounded px-3 py-2 font-mono text-[11px] bg-white focus:outline-none focus:border-purple-600"></textarea>
                             <p class="text-[11px] text-purple-700">
-                                Paste your Twitch JavaScript video player embed code (or Twitch channel handle).
+                                Paste either a Twitch <code>&lt;iframe src="https://player.twitch.tv/..."&gt;&lt;/iframe&gt;</code> tag or the Twitch JavaScript embed snippet. The <code>parent</code> domain is updated automatically.
                             </p>
                         </div>
                     </template>
