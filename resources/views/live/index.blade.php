@@ -110,6 +110,12 @@
                             <script src="https://player.twitch.tv/js/embed/v1.js"></script>
                             <script>
                                 (function () {
+                                    // Twitch rejects 0.0.0.0 and 127.0.0.1 as parent domains; redirect local IP binds to localhost
+                                    if (window.location.hostname === '0.0.0.0' || window.location.hostname === '127.0.0.1') {
+                                        window.location.replace(window.location.href.replace(window.location.hostname, 'localhost'));
+                                        return;
+                                    }
+
                                     var initTwitchPlayer = function () {
                                         if (typeof Twitch === 'undefined' || !Twitch.Player) {
                                             return;
@@ -122,7 +128,7 @@
 
                                         var options = {{ Js::from($activeStream->getTwitchPlayerOptions(request()->getHost())) }};
                                         var currentHost = window.location.hostname || 'localhost';
-                                        options.parent = Array.from(new Set([currentHost].concat(options.parent || [])));
+                                        options.parent = [currentHost];
                                         options.width = '100%';
                                         options.height = '100%';
                                         options.autoplay = true;

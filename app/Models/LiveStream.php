@@ -268,14 +268,23 @@ class LiveStream extends Model
     public function getTwitchPlayerOptions(?string $parentHost = null): array
     {
         $host = $parentHost ?: (request()?->getHost() ?: 'localhost');
-        $source = trim((string) ($this->embed_url ?: $this->stream_url));
+        if (in_array($host, ['0.0.0.0', '127.0.0.1', '::1'], true)) {
+            $host = 'localhost';
+        }
+
+        // Prefer stream_url if it contains raw Twitch JS embed code, otherwise embed_url
+        $rawStream = trim((string) $this->stream_url);
+        $rawEmbed = trim((string) $this->embed_url);
+        $source = (str_contains($rawStream, 'Twitch.') || str_contains($rawStream, '<script'))
+            ? $rawStream
+            : ($rawEmbed !== '' ? $rawEmbed : $rawStream);
 
         $options = [
             'width' => '100%',
             'height' => '100%',
             'autoplay' => true,
             'muted' => false,
-            'parent' => array_values(array_unique(array_filter([$host, 'localhost', '127.0.0.1']))),
+            'parent' => [$host],
         ];
 
         // 1. Parse JavaScript embed object properties: channel: "xxx", video: "123", collection: "abc"
