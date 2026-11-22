@@ -90,7 +90,7 @@ class DashboardController extends Controller
 
         // 6. Monetization & Audience
         $totalAdsCount = Advertisement::where('is_active', true)->count();
-        $subscribersCount = NewsletterSubscriber::where('is_active', true)->count();
+        $subscribersCount = NewsletterSubscriber::whereNull('unsubscribed_at')->count();
         $commentsPendingCount = Comment::pending()->count();
         $totalCommentsCount = Comment::count();
 
