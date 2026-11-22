@@ -355,6 +355,182 @@ class LaravelApp
         ];
     }
 
+    public static function createStorageLink(): array
+    {
+        $startTime = microtime(true);
+        $target = STORAGE_PATH.'/app/public';
+        $link = BASE_PATH.'/public/storage';
+
+        try {
+            if (! file_exists($target)) {
+                @mkdir($target, 0777, true);
+            }
+            if (file_exists($link) || is_link($link)) {
+                return [
+                    'success' => true,
+                    'output' => 'Storage symlink already configured.',
+                    'duration' => round(microtime(true) - $startTime, 3),
+                ];
+            }
+            if (function_exists('symlink') && @symlink($target, $link)) {
+                return [
+                    'success' => true,
+                    'output' => 'Storage symlink created via pure PHP (no exec).',
+                    'duration' => round(microtime(true) - $startTime, 3),
+                ];
+            }
+
+            return [
+                'success' => true,
+                'output' => 'Notice: symlink() is restricted on host, using direct public uploads.',
+                'duration' => round(microtime(true) - $startTime, 3),
+            ];
+        } catch (Throwable $e) {
+            return [
+                'success' => false,
+                'output' => 'Storage notice: '.$e->getMessage(),
+                'duration' => round(microtime(true) - $startTime, 3),
+            ];
+        }
+    }
+
+    public static function pullFromGitHub(string $repo = 'motechgroup/kisiitvcms', string $branch = 'main'): array
+    {
+        $startTime = microtime(true);
+
+        if (! class_exists('ZipArchive')) {
+            return [
+                'success' => false,
+                'output' => 'ERROR: PHP ZipArchive extension is not enabled on this server.',
+                'duration' => 0,
+            ];
+        }
+
+        $zipUrl = "https://codeload.github.com/{$repo}/zip/refs/heads/{$branch}?t=".time();
+        $tmpZip = STORAGE_PATH.'/github_deploy_'.time().'.zip';
+
+        if (! is_dir(STORAGE_PATH)) {
+            @mkdir(STORAGE_PATH, 0777, true);
+        }
+
+        $zipBytes = false;
+        $httpCode = 0;
+
+        if (function_exists('curl_init')) {
+            $ch = curl_init($zipUrl);
+            curl_setopt_array($ch, [
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_FOLLOWLOCATION => true,
+                CURLOPT_TIMEOUT => 90,
+                CURLOPT_USERAGENT => 'KisiiTV-Deployer/4.0',
+                CURLOPT_SSL_VERIFYPEER => false,
+                CURLOPT_HTTPHEADER => ['Cache-Control: no-cache'],
+            ]);
+            $zipBytes = curl_exec($ch);
+            $httpCode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+        } elseif (ini_get('allow_url_fopen')) {
+            $ctx = stream_context_create([
+                'http' => ['header' => "User-Agent: KisiiTV-Deployer/4.0\r\n"],
+                'ssl' => ['verify_peer' => false, 'verify_peer_name' => false],
+            ]);
+            $zipBytes = @file_get_contents($zipUrl, false, $ctx);
+            $httpCode = $zipBytes ? 200 : 500;
+        }
+
+        if ($httpCode !== 200 || ! $zipBytes || strlen($zipBytes) < 10000) {
+            return [
+                'success' => false,
+                'output' => "ERROR: Failed to download latest code from GitHub ({$repo}@{$branch}). HTTP Status: {$httpCode}",
+                'duration' => round(microtime(true) - $startTime, 3),
+            ];
+        }
+
+        @file_put_contents($tmpZip, $zipBytes);
+
+        $zip = new ZipArchive;
+        if ($zip->open($tmpZip) !== true) {
+            @unlink($tmpZip);
+
+            return [
+                'success' => false,
+                'output' => 'ERROR: Failed to open downloaded GitHub ZIP archive.',
+                'duration' => round(microtime(true) - $startTime, 3),
+            ];
+        }
+
+        $extractedCount = 0;
+        for ($i = 0; $i < $zip->numFiles; $i++) {
+            $entryName = $zip->getNameIndex($i);
+            $slashPos = strpos($entryName, '/');
+            if ($slashPos === false) {
+                continue;
+            }
+            $relPath = substr($entryName, $slashPos + 1);
+
+            // Protect live .env, storage, and git folders
+            if (
+                $relPath === '' ||
+                str_starts_with($relPath, '.env') ||
+                str_starts_with($relPath, 'storage/') ||
+                str_starts_with($relPath, '.git/') ||
+                str_starts_with($relPath, 'public/uploads/')
+            ) {
+                continue;
+            }
+
+            $targetPath = BASE_PATH.'/'.$relPath;
+            if (substr($entryName, -1) === '/') {
+                if (! is_dir($targetPath)) {
+                    @mkdir($targetPath, 0755, true);
+                }
+
+                continue;
+            }
+
+            $parentDir = dirname($targetPath);
+            if (! is_dir($parentDir)) {
+                @mkdir($parentDir, 0755, true);
+            }
+
+            $stream = $zip->getStream($entryName);
+            if ($stream) {
+                $contents = stream_get_contents($stream);
+                fclose($stream);
+                @file_put_contents($targetPath, $contents);
+                $extractedCount++;
+            }
+        }
+
+        $zip->close();
+        @unlink($tmpZip);
+
+        // Clear compiled Blade views & framework cache files directly on disk
+        $viewsDir = STORAGE_PATH.'/framework/views';
+        if (is_dir($viewsDir)) {
+            foreach (glob($viewsDir.'/*.php') ?: [] as $viewFile) {
+                @unlink($viewFile);
+            }
+        }
+        foreach (glob(BASE_PATH.'/bootstrap/cache/*.php') ?: [] as $cacheFile) {
+            if (basename($cacheFile) !== 'packages.php' && basename($cacheFile) !== 'services.php') {
+                @unlink($cacheFile);
+            }
+        }
+
+        if (function_exists('opcache_reset')) {
+            @opcache_reset();
+        }
+
+        $duration = round(microtime(true) - $startTime, 3);
+
+        return [
+            'success' => true,
+            'output' => "Successfully pulled & extracted {$extractedCount} files from GitHub ({$repo}@{$branch}) in {$duration}s.",
+            'duration' => $duration,
+        ];
+    }
+
     public static function getStats(): array
     {
         $stats = [

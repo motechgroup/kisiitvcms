@@ -104,14 +104,54 @@
             <div class="space-y-5 sm:space-y-6">
                 <div class="w-full bg-black border border-slate-800 sm:border-2 shadow-2xl overflow-hidden rounded-md sm:rounded-lg">
                     <div class="relative w-full aspect-video max-h-[80vh] mx-auto" style="aspect-ratio: 16 / 9;">
-                        <iframe
-                            src="{{ $activeStream->getComputedEmbedUrl(request()->getHost()) }}"
-                            title="{{ $activeStream->title }}"
-                            class="absolute inset-0 w-full h-full border-0"
-                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
-                            referrerpolicy="strict-origin-when-cross-origin"
-                            allowfullscreen>
-                        </iframe>
+                        @if($activeStream->isTwitch())
+                            <!-- Twitch Interactive JavaScript Video Player (No Manual Iframe) -->
+                            <div id="kisiitv-twitch-player" class="absolute inset-0 w-full h-full"></div>
+                            <script src="https://player.twitch.tv/js/embed/v1.js"></script>
+                            <script>
+                                (function () {
+                                    var initTwitchPlayer = function () {
+                                        if (typeof Twitch === 'undefined' || !Twitch.Player) {
+                                            return;
+                                        }
+                                        var container = document.getElementById('kisiitv-twitch-player');
+                                        if (!container || container.dataset.initialized === 'true') {
+                                            return;
+                                        }
+                                        container.dataset.initialized = 'true';
+
+                                        var options = {{ Js::from($activeStream->getTwitchPlayerOptions(request()->getHost())) }};
+                                        var currentHost = window.location.hostname || 'localhost';
+                                        options.parent = Array.from(new Set([currentHost].concat(options.parent || [])));
+                                        options.width = '100%';
+                                        options.height = '100%';
+                                        options.autoplay = true;
+
+                                        var player = new Twitch.Player('kisiitv-twitch-player', options);
+                                        player.addEventListener(Twitch.Player.READY, function () {
+                                            try {
+                                                player.play();
+                                            } catch (e) {}
+                                        });
+                                    };
+
+                                    if (document.readyState === 'loading') {
+                                        document.addEventListener('DOMContentLoaded', initTwitchPlayer);
+                                    } else {
+                                        initTwitchPlayer();
+                                    }
+                                })();
+                            </script>
+                        @else
+                            <iframe
+                                src="{{ $activeStream->getComputedEmbedUrl(request()->getHost()) }}"
+                                title="{{ $activeStream->title }}"
+                                class="absolute inset-0 w-full h-full border-0"
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
+                                referrerpolicy="strict-origin-when-cross-origin"
+                                allowfullscreen>
+                            </iframe>
+                        @endif
                     </div>
                 </div>
 

@@ -228,6 +228,68 @@ class LiveStream extends Model
     }
 
     /**
+     * Determine whether this stream uses the Twitch JavaScript Player SDK.
+     */
+    public function isTwitch(): bool
+    {
+        return strtolower($this->platform) === 'twitch'
+            || str_contains(strtolower((string) $this->stream_url), 'twitch.tv');
+    }
+
+    /**
+     * Extract Twitch.Player JavaScript configuration options (channel, video, or collection).
+     *
+     * @return array<string, mixed>
+     */
+    public function getTwitchPlayerOptions(?string $parentHost = null): array
+    {
+        $host = $parentHost ?: (request()?->getHost() ?: 'localhost');
+        $source = trim((string) ($this->stream_url ?: $this->embed_url));
+
+        $options = [
+            'width' => '100%',
+            'height' => '100%',
+            'autoplay' => true,
+            'muted' => false,
+            'parent' => array_values(array_unique(array_filter([$host, 'localhost', '127.0.0.1']))),
+        ];
+
+        if (preg_match('/(?:twitch\.tv\/videos\/|[?&]video=)(\d+)/i', $source, $matches)) {
+            $options['video'] = $matches[1];
+
+            return $options;
+        }
+
+        if (preg_match('/[?&]collection=([a-zA-Z0-9_-]+)/i', $source, $matches)) {
+            $options['collection'] = $matches[1];
+
+            return $options;
+        }
+
+        if (preg_match('/[?&]channel=([a-zA-Z0-9_]+)/i', $source, $matches)) {
+            $options['channel'] = $matches[1];
+
+            return $options;
+        }
+
+        if (preg_match('/twitch\.tv\/([a-zA-Z0-9_]+)/i', $source, $matches)) {
+            $options['channel'] = $matches[1];
+
+            return $options;
+        }
+
+        if (preg_match('/^[a-zA-Z0-9_]+$/', $source)) {
+            $options['channel'] = $source;
+
+            return $options;
+        }
+
+        $options['channel'] = $source;
+
+        return $options;
+    }
+
+    /**
      * Human-readable platform label.
      */
     public function platformLabel(): string

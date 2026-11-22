@@ -76,8 +76,15 @@ class LiveStreamAndDonationTest extends TestCase
 
         $twitchResponse->assertRedirect(route('admin.streams.index'));
         $twitchStream = LiveStream::where('platform', 'twitch')->firstOrFail();
-        $this->assertStringContainsString('https://player.twitch.tv/?channel=kisiitv_official', $twitchStream->embed_url);
-        $this->assertStringContainsString('autoplay=true', $twitchStream->embed_url);
+        $this->assertTrue($twitchStream->isTwitch());
+        $this->assertSame('kisiitv_official', $twitchStream->getTwitchPlayerOptions('kisiitv.co.ke')['channel']);
+
+        // Verify public Twitch stream page renders Twitch.Player JavaScript SDK instead of an iframe
+        $twitchPublicPage = $this->get(route('live.show', $twitchStream->slug));
+        $twitchPublicPage->assertStatus(200);
+        $twitchPublicPage->assertSee('https://player.twitch.tv/js/embed/v1.js', false);
+        $twitchPublicPage->assertSee("new Twitch.Player('kisiitv-twitch-player'", false);
+        $twitchPublicPage->assertSee('kisiitv_official');
 
         // 3. Facebook Live Stream
         $fbUrl = 'https://www.facebook.com/KisiitvAmandegere/videos/123456789012345';
