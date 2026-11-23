@@ -10,14 +10,16 @@ use Illuminate\Support\Facades\Log;
 class PaymentGatewayService
 {
     /**
-     * Initialize Paystack checkout and return hosted authorization URL.
+     * Initialize Paystack checkout and return hosted authorization URL or error.
+     *
+     * @return array{url: ?string, error: ?string}
      */
-    public function initializePaystack(Donation $donation, PaymentGateway $gateway): ?string
+    public function initializePaystack(Donation $donation, PaymentGateway $gateway): array
     {
         $secretKey = trim((string) $gateway->secret_key);
 
         if (empty($secretKey)) {
-            return null;
+            return ['url' => null, 'error' => null];
         }
 
         try {
@@ -43,26 +45,31 @@ class PaymentGatewayService
                 ]);
 
             if ($response->successful() && $response->json('data.authorization_url')) {
-                return $response->json('data.authorization_url');
+                return ['url' => $response->json('data.authorization_url'), 'error' => null];
             }
 
+            $error = $response->json('message') ?? 'Paystack could not initialize checkout.';
             Log::warning('Paystack initialization response failed', ['body' => $response->json()]);
+
+            return ['url' => null, 'error' => $error];
         } catch (\Throwable $e) {
             Log::error('Paystack initialization exception', ['error' => $e->getMessage()]);
-        }
 
-        return null;
+            return ['url' => null, 'error' => 'Could not connect to Paystack. Please try again.'];
+        }
     }
 
     /**
-     * Initialize Flutterwave checkout and return hosted payment link.
+     * Initialize Flutterwave checkout and return hosted payment link or error.
+     *
+     * @return array{url: ?string, error: ?string}
      */
-    public function initializeFlutterwave(Donation $donation, PaymentGateway $gateway): ?string
+    public function initializeFlutterwave(Donation $donation, PaymentGateway $gateway): array
     {
         $secretKey = trim((string) $gateway->secret_key);
 
         if (empty($secretKey)) {
-            return null;
+            return ['url' => null, 'error' => null];
         }
 
         try {
@@ -89,15 +96,18 @@ class PaymentGatewayService
                 ]);
 
             if ($response->successful() && $response->json('data.link')) {
-                return $response->json('data.link');
+                return ['url' => $response->json('data.link'), 'error' => null];
             }
 
+            $error = $response->json('message') ?? 'Flutterwave could not initialize checkout.';
             Log::warning('Flutterwave initialization response failed', ['body' => $response->json()]);
+
+            return ['url' => null, 'error' => $error];
         } catch (\Throwable $e) {
             Log::error('Flutterwave initialization exception', ['error' => $e->getMessage()]);
-        }
 
-        return null;
+            return ['url' => null, 'error' => 'Could not connect to Flutterwave. Please try again.'];
+        }
     }
 
     /**

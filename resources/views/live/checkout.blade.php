@@ -17,6 +17,10 @@
         init() {
             @if($donation->gateway_code === 'mpesa' && $donation->status === 'pending')
                 this.startPolling();
+            @elseif($donation->gateway_code === 'paystack' && $donation->status === 'pending' && !empty($donation->paymentGateway?->public_key))
+                this.$nextTick(() => this.payWithPaystack());
+            @elseif($donation->gateway_code === 'flutterwave' && $donation->status === 'pending' && !empty($donation->paymentGateway?->public_key))
+                this.$nextTick(() => this.payWithFlutterwave());
             @endif
         },
 
@@ -216,27 +220,41 @@
                     </div>
 
                 @elseif($donation->gateway_code === 'paystack')
-                    <div class="bg-blue-950/30 border border-blue-500/40 rounded-xl p-5 space-y-4 text-center">
-                        <h2 class="text-base font-black text-white">Paystack Secure Checkout</h2>
-                        <p class="text-xs text-slate-300">
-                            Click below to complete your contribution with Visa, Mastercard, Apple Pay, or M-Pesa.
-                        </p>
-                        <button type="button" @click="payWithPaystack()"
-                            class="w-full py-3.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-black text-xs uppercase tracking-wider shadow-lg transition cursor-pointer">
-                            Open Paystack Checkout &rarr;
-                        </button>
+                    <div class="bg-blue-950/30 border border-blue-500/40 rounded-xl p-5 space-y-3 text-center">
+                        @if(!empty($donation->paymentGateway?->public_key))
+                            <h2 class="text-base font-black text-white">Launching Paystack Secure Checkout...</h2>
+                            <p class="text-xs text-slate-300">
+                                Complete your payment in the Paystack window. If it did not open, click below:
+                            </p>
+                            <button type="button" @click="payWithPaystack()"
+                                class="py-2.5 px-5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs uppercase tracking-wider shadow transition cursor-pointer">
+                                Re-open Paystack Window &rarr;
+                            </button>
+                        @else
+                            <h2 class="text-base font-black text-white">Paystack Sandbox Mode</h2>
+                            <p class="text-xs text-amber-200 leading-relaxed">
+                                Paystack Public &amp; Secret keys are not configured yet in <strong>Admin &rarr; Payment Gateways</strong>. Once added, donors are redirected straight to Paystack's live checkout page.
+                            </p>
+                        @endif
                     </div>
 
                 @elseif($donation->gateway_code === 'flutterwave')
-                    <div class="bg-amber-950/30 border border-amber-500/40 rounded-xl p-5 space-y-4 text-center">
-                        <h2 class="text-base font-black text-white">Flutterwave Secure Checkout</h2>
-                        <p class="text-xs text-slate-300">
-                            Click below to complete payment via Card, M-Pesa, Airtel Money, or Bank Transfer.
-                        </p>
-                        <button type="button" @click="payWithFlutterwave()"
-                            class="w-full py-3.5 px-4 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-black text-xs uppercase tracking-wider shadow-lg transition cursor-pointer">
-                            Open Flutterwave Checkout &rarr;
-                        </button>
+                    <div class="bg-amber-950/30 border border-amber-500/40 rounded-xl p-5 space-y-3 text-center">
+                        @if(!empty($donation->paymentGateway?->public_key))
+                            <h2 class="text-base font-black text-white">Launching Flutterwave Secure Checkout...</h2>
+                            <p class="text-xs text-slate-300">
+                                Complete your payment in the Flutterwave window. If it did not open, click below:
+                            </p>
+                            <button type="button" @click="payWithFlutterwave()"
+                                class="py-2.5 px-5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs uppercase tracking-wider shadow transition cursor-pointer">
+                                Re-open Flutterwave Window &rarr;
+                            </button>
+                        @else
+                            <h2 class="text-base font-black text-white">Flutterwave Sandbox Mode</h2>
+                            <p class="text-xs text-amber-200 leading-relaxed">
+                                Flutterwave Public &amp; Secret keys are not configured yet in <strong>Admin &rarr; Payment Gateways</strong>. Once added, donors are redirected straight to Flutterwave's live checkout page.
+                            </p>
+                        @endif
                     </div>
 
                 @elseif($donation->gateway_code === 'paypal')

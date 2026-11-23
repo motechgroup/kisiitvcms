@@ -127,16 +127,24 @@ class DonationController extends Controller
         }
 
         if ($gateway->code === 'paystack') {
-            $paystackUrl = $gatewayService->initializePaystack($donation, $gateway);
-            if ($paystackUrl) {
-                return redirect()->away($paystackUrl);
+            $paystackInit = $gatewayService->initializePaystack($donation, $gateway);
+            if (! empty($paystackInit['url'])) {
+                return redirect()->away($paystackInit['url']);
+            }
+            if (! empty($paystackInit['error'])) {
+                return redirect()->route('donations.checkout', $donation->transaction_reference)
+                    ->with('error', $paystackInit['error']);
             }
         }
 
         if ($gateway->code === 'flutterwave') {
-            $flutterwaveUrl = $gatewayService->initializeFlutterwave($donation, $gateway);
-            if ($flutterwaveUrl) {
-                return redirect()->away($flutterwaveUrl);
+            $flwInit = $gatewayService->initializeFlutterwave($donation, $gateway);
+            if (! empty($flwInit['url'])) {
+                return redirect()->away($flwInit['url']);
+            }
+            if (! empty($flwInit['error'])) {
+                return redirect()->route('donations.checkout', $donation->transaction_reference)
+                    ->with('error', $flwInit['error']);
             }
         }
 
