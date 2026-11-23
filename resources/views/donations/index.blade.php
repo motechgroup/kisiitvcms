@@ -134,10 +134,17 @@
                 </div>
 
                 <!-- Editorial Hotline & Office -->
+                @php
+                    $officeAddress = \App\Models\SiteSetting::get('newsroom_address', 'Sansora Complex, Kisii Town & Nairobi Media Center');
+                    $officePhone = \App\Models\SiteSetting::get('contact_phone', '+254 726 547 363');
+                    $officeEmail = \App\Models\SiteSetting::get('contact_email', 'kisiitelevision@gmail.com');
+                    $whatsappHref = \App\Models\SiteSetting::get('social_whatsapp', 'https://wa.me/254726547363');
+                @endphp
                 <div class="p-4 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-400 space-y-1">
                     <div class="font-bold text-slate-300 uppercase tracking-wider text-[10px]">Newsroom Administration Desk</div>
-                    <div>Sansora Complex, Kisii Town &amp; Nairobi Media Center</div>
-                    <div>Hotline / WhatsApp: <a href="https://wa.me/254726547363" class="text-emerald-400 hover:underline font-bold">+254 726 547 363</a></div>
+                    <div>{{ $officeAddress }}</div>
+                    <div>Desk Email: <a href="mailto:{{ $officeEmail }}" class="text-blue-400 hover:underline font-semibold">{{ $officeEmail }}</a></div>
+                    <div>Hotline / WhatsApp: <a href="{{ $whatsappHref }}" target="_blank" rel="noopener" class="text-emerald-400 hover:underline font-bold">{{ $officePhone }}</a></div>
                 </div>
 
             </div>

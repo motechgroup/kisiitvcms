@@ -364,10 +364,13 @@
             </div>
 
             <!-- Newsroom Tip Line Callout -->
+            @php
+                $deskEmail = \App\Models\SiteSetting::get('contact_email', 'kisiitelevision@gmail.com');
+            @endphp
             <div class="border-l-4 border-[#d9252a] bg-red-50 p-4 text-xs text-red-950">
                 <div class="font-bold uppercase tracking-wider text-[10px] text-red-800">Newsroom Tip Line</div>
                 <p class="mt-1 leading-relaxed">
-                    Got breaking news or an investigative tip? Reach our 24/7 confidential editorial desk at <strong class="underline">newsroom@kisiitv.com</strong>.
+                    Got breaking news or an investigative tip? Reach our 24/7 confidential editorial desk at <a href="mailto:{{ $deskEmail }}" class="font-bold underline">{{ $deskEmail }}</a>.
                 </p>
             </div>
 
