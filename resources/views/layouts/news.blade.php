@@ -800,101 +800,12 @@
 
                 <!-- Modal Body -->
                 <div class="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
-                    <form method="POST" action="{{ route('donations.store') }}" class="space-y-4 text-left">
-                        @csrf
-
-                        <!-- Preset Amounts -->
-                        <div>
-                            <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-300 mb-2">
-                                1. Select or Enter Amount (KES)
-                            </label>
-                            <div class="grid grid-cols-4 gap-2 mb-2">
-                                @foreach([200, 500, 1000, 5000] as $preset)
-                                    <button type="button"
-                                        @click="globalAmount = '{{ $preset }}'"
-                                        :class="globalAmount == '{{ $preset }}' ? 'bg-emerald-600 text-white border-emerald-400 shadow ring-1 ring-emerald-400' : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700'"
-                                        class="py-2 px-1 text-xs font-black rounded-lg border transition text-center cursor-pointer">
-                                        {{ number_format($preset) }}
-                                    </button>
-                                @endforeach
-                            </div>
-                            <div class="relative">
-                                <span class="absolute left-3 top-2.5 text-slate-500 font-mono text-xs font-bold">KES</span>
-                                <input type="number" name="amount" x-model="globalAmount" min="10" step="any" required
-                                    placeholder="Enter custom amount..."
-                                    class="w-full bg-slate-950 border border-slate-700 focus:border-emerald-500 rounded-lg pl-12 pr-3 py-2 text-xs font-bold text-white focus:outline-none">
-                            </div>
-                        </div>
-
-                        <!-- Gateways -->
-                        <div>
-                            <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-300 mb-2">
-                                2. Choose Payment Method
-                            </label>
-                            <div class="grid grid-cols-2 gap-2">
-                                @foreach($globalActiveGateways as $gw)
-                                    <label @click="globalGateway = '{{ $gw->code }}'"
-                                        :class="globalGateway === '{{ $gw->code }}' ? 'border-emerald-400 bg-emerald-950/40 text-white' : 'border-slate-700 bg-slate-950/60 text-slate-300 hover:border-slate-600'"
-                                        class="border-2 rounded-lg p-2.5 cursor-pointer transition flex flex-col justify-between">
-                                        <div class="flex items-center justify-between">
-                                            <input type="radio" name="gateway_code" value="{{ $gw->code }}" x-model="globalGateway" class="sr-only">
-                                            <span class="text-xs font-black uppercase tracking-wide">{{ $gw->code === 'mpesa' ? 'M-Pesa' : ucfirst($gw->code) }}</span>
-                                            <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-800 text-emerald-300">{{ $gw->currency }}</span>
-                                        </div>
-                                        <span class="text-[10px] text-slate-400 mt-1 line-clamp-1">{{ $gw->provider_label ?? $gw->name }}</span>
-                                    </label>
-                                @endforeach
-                            </div>
-                        </div>
-
-                        <!-- Supporter Info -->
-                        <div class="space-y-3 pt-1">
-                            <div>
-                                <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-300 mb-1">Your Full Name *</label>
-                                <input type="text" name="donor_name" value="{{ old('donor_name', auth()->user()?->name) }}" required
-                                    placeholder="e.g. Douglas Mogaka"
-                                    class="w-full bg-slate-950 border border-slate-700 focus:border-emerald-500 rounded-lg px-3 py-2 text-xs text-white focus:outline-none">
-                            </div>
-
-                            <div x-show="globalGateway === 'mpesa'" x-cloak>
-                                <label class="block text-[11px] font-bold uppercase tracking-wider text-emerald-400 mb-1">M-Pesa Mobile Number * (For STK Push)</label>
-                                <input type="text" name="donor_phone" value="{{ old('donor_phone') }}"
-                                    placeholder="e.g. 0712345678 or 254712345678"
-                                    class="w-full bg-slate-950 border border-emerald-500/60 focus:border-emerald-400 rounded-lg px-3 py-2 text-xs text-white focus:outline-none">
-                            </div>
-
-                            <div>
-                                <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-300 mb-1">Email Address (Optional)</label>
-                                <input type="email" name="donor_email" value="{{ old('donor_email', auth()->user()?->email) }}"
-                                    placeholder="you@example.com"
-                                    class="w-full bg-slate-950 border border-slate-700 focus:border-emerald-500 rounded-lg px-3 py-2 text-xs text-white focus:outline-none">
-                            </div>
-
-                            <div>
-                                <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-300 mb-1">Words of Support (Optional)</label>
-                                <textarea name="message" rows="2" placeholder="Leave a brief message for the newsroom..."
-                                    class="w-full bg-slate-950 border border-slate-700 focus:border-emerald-500 rounded-lg px-3 py-2 text-xs text-white focus:outline-none">{{ old('message') }}</textarea>
-                            </div>
-
-                            <label class="flex items-center space-x-2 text-xs text-slate-400 cursor-pointer">
-                                <input type="checkbox" name="is_anonymous" value="1" {{ old('is_anonymous') ? 'checked' : '' }}
-                                    class="rounded bg-slate-950 border-slate-700 text-emerald-600 focus:ring-0">
-                                <span>Make contribution anonymous</span>
-                            </label>
-                        </div>
-
-                        <div class="flex items-center justify-end space-x-3 pt-3 border-t border-slate-800">
-                            <button type="button" @click="globalDonateOpen = false"
-                                class="px-4 py-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition cursor-pointer">
-                                Close
-                            </button>
-                            <button type="submit"
-                                class="py-2.5 px-5 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs uppercase tracking-wider rounded-lg shadow-lg transition cursor-pointer flex items-center space-x-2">
-                                <span>Complete Kisii TV Donation</span>
-                                <span>&rarr;</span>
-                            </button>
-                        </div>
-                    </form>
+                    <x-donation-form
+                        :gateways="$globalActiveGateways"
+                        amount-model="globalAmount"
+                        gateway-model="globalGateway"
+                        cancel-action="globalDonateOpen = false"
+                    />
                 </div>
             </div>
         </div>

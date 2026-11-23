@@ -10,6 +10,7 @@ use App\Models\LiveStream;
 use App\Models\PaymentGateway;
 use App\Models\SiteSetting;
 use App\Services\MpesaService;
+use App\Services\PaymentGatewayService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -39,7 +40,7 @@ class DonationController extends Controller
     /**
      * Initiate a new viewer donation via M-Pesa, Paystack, PayPal, or Flutterwave.
      */
-    public function store(Request $request): RedirectResponse
+    public function store(Request $request, MpesaService $mpesaService, PaymentGatewayService $gatewayService): RedirectResponse
     {
         PaymentGateway::ensureDefaultsExist();
 
@@ -48,7 +49,7 @@ class DonationController extends Controller
             'campaign_id' => ['nullable', 'exists:donation_campaigns,id'],
             'gateway_code' => ['required', 'string', 'in:mpesa,paystack,paypal,flutterwave'],
             'amount' => ['required', 'numeric', 'min:10', 'max:10000000'],
-            'donor_name' => ['required', 'string', 'max:120'],
+            'donor_name' => ['nullable', 'string', 'max:120'],
             'donor_email' => ['nullable', 'email', 'max:150'],
             'donor_phone' => ['nullable', 'string', 'max:30', 'required_if:gateway_code,mpesa'],
             'message' => ['nullable', 'string', 'max:500'],
@@ -96,13 +97,15 @@ class DonationController extends Controller
             $reference = 'KTV-DON-'.strtoupper(Str::random(10));
         }
 
+        $donorName = trim((string) ($validated['donor_name'] ?? ''));
+
         $donation = Donation::create([
             'live_stream_id' => $liveStream?->id,
             'campaign_id' => $campaign?->id,
             'payment_gateway_id' => $gateway->id,
             'gateway_code' => $gateway->code,
             'transaction_reference' => $reference,
-            'donor_name' => $validated['donor_name'],
+            'donor_name' => $donorName !== '' ? $donorName : 'Kisii TV Supporter',
             'donor_email' => $validated['donor_email'] ?? null,
             'donor_phone' => $validated['donor_phone'] ?? null,
             'amount' => $validated['amount'],
@@ -116,7 +119,77 @@ class DonationController extends Controller
             ],
         ]);
 
+        if ($gateway->code === 'mpesa') {
+            $stkResult = $mpesaService->initiateStkPush($donation, $gateway);
+
+            return redirect()->route('donations.checkout', $donation->transaction_reference)
+                ->with('stk_result', $stkResult);
+        }
+
+        if ($gateway->code === 'paystack') {
+            $paystackUrl = $gatewayService->initializePaystack($donation, $gateway);
+            if ($paystackUrl) {
+                return redirect()->away($paystackUrl);
+            }
+        }
+
+        if ($gateway->code === 'flutterwave') {
+            $flutterwaveUrl = $gatewayService->initializeFlutterwave($donation, $gateway);
+            if ($flutterwaveUrl) {
+                return redirect()->away($flutterwaveUrl);
+            }
+        }
+
         return redirect()->route('donations.checkout', $donation->transaction_reference);
+    }
+
+    /**
+     * Handle browser redirect callback from Paystack or Flutterwave hosted checkout.
+     */
+    public function callback(Request $request, string $gateway, PaymentGatewayService $gatewayService): RedirectResponse
+    {
+        $reference = $request->input('reference')
+            ?? $request->input('trxref')
+            ?? $request->input('tx_ref')
+            ?? $request->input('donation');
+
+        $donation = $reference ? Donation::where('transaction_reference', $reference)->first() : null;
+
+        if (! $donation) {
+            return redirect()->route('donations.index')
+                ->with('error', 'Donation transaction reference could not be located.');
+        }
+
+        $paymentGateway = $donation->paymentGateway ?? PaymentGateway::where('code', $gateway)->first();
+        $verified = false;
+        $externalRef = null;
+
+        if ($gateway === 'paystack' && $paymentGateway) {
+            $verified = $gatewayService->verifyPaystack($donation->transaction_reference, $paymentGateway);
+            $externalRef = $request->input('reference', $donation->transaction_reference);
+        } elseif ($gateway === 'flutterwave' && $paymentGateway) {
+            $txId = (string) $request->input('transaction_id', '');
+            $status = $request->input('status');
+            if ($status === 'successful' || $status === 'completed') {
+                $verified = $txId !== '' ? $gatewayService->verifyFlutterwave($txId, $paymentGateway) : true;
+                $externalRef = $txId !== '' ? $txId : $donation->transaction_reference;
+            }
+        }
+
+        if (! $verified) {
+            return redirect()->route('donations.checkout', $donation->transaction_reference)
+                ->with('error', 'Payment was not completed or could not be verified. You can retry below.');
+        }
+
+        if ($donation->status !== 'completed') {
+            $donation->update([
+                'status' => 'completed',
+                'external_reference' => $externalRef ?: strtoupper($gateway).'-'.strtoupper(Str::random(8)),
+                'paid_at' => now(),
+            ]);
+        }
+
+        return $this->redirectAfterCompletion($donation);
     }
 
     /**
@@ -263,6 +336,14 @@ class DonationController extends Controller
             ]);
         }
 
+        return $this->redirectAfterCompletion($donation);
+    }
+
+    /**
+     * Redirect donor to the originating campaign, live stream, or general donation portal.
+     */
+    protected function redirectAfterCompletion(Donation $donation): RedirectResponse
+    {
         if ($donation->campaign) {
             return redirect()->route('campaigns.show', $donation->campaign->slug)
                 ->with('success', "Thank you, {$donation->displayName()}! Your {$donation->currency} ".number_format((float) $donation->amount, 2)." contribution to the \"{$donation->campaign->title}\" campaign via ".strtoupper($donation->gateway_code)." (Ref: {$donation->transaction_reference}) has been received. Thank you for empowering our community mission!");

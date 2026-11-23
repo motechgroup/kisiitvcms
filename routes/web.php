@@ -46,6 +46,7 @@ Route::post('/donations', [DonationController::class, 'store'])->name('donations
 Route::get('/donations/{donation}/checkout', [DonationController::class, 'checkout'])->name('donations.checkout');
 Route::post('/donations/{donation}/stk-push', [DonationController::class, 'initiateStkPush'])->name('donations.stk-push');
 Route::get('/donations/{donation}/status', [DonationController::class, 'status'])->name('donations.status');
+Route::get('/donations/callback/{gateway}', [DonationController::class, 'callback'])->name('donations.callback');
 Route::post('/donations/{donation}/complete', [DonationController::class, 'complete'])->name('donations.complete');
 Route::any('/donations/webhook/{gateway}', [DonationController::class, 'webhook'])->name('donations.webhook');
 

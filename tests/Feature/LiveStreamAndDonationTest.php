@@ -14,6 +14,7 @@ use Database\Seeders\PaymentGatewaySeeder;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Database\Seeders\SiteSettingSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
 use PHPUnit\Framework\Attributes\TestWith;
 use Tests\TestCase;
 
@@ -181,7 +182,7 @@ HTML;
         $publicOn = $this->get(route('live.show', $stream->slug));
         $publicOn->assertStatus(200);
         $publicOn->assertSee('Donate / Support Stream');
-        $publicOn->assertSee('Proceed to Donate');
+        $publicOn->assertSee('name="live_stream_id"', false);
         $publicOn->assertSee('Share on WhatsApp');
         $publicOn->assertSee('Share on Facebook');
         $publicOn->assertSee('Share on X');
@@ -202,7 +203,7 @@ HTML;
         // Public page hides donation box when disabled for the stream
         $publicOff = $this->get(route('live.show', $stream->slug));
         $publicOff->assertStatus(200);
-        $publicOff->assertDontSee('Proceed to Donate');
+        $publicOff->assertDontSee('name="live_stream_id"', false);
 
         // Submitting a donation to a stream with donations disabled is rejected
         $donateAttempt = $this->post(route('donations.store'), [
@@ -332,7 +333,7 @@ HTML;
         // Checkout page displays general checkout
         $checkout = $this->get(route('donations.checkout', $donation->transaction_reference));
         $checkout->assertStatus(200);
-        $checkout->assertSee('Mama Moraa');
+        $checkout->assertSee('Check Your Phone');
         $checkout->assertSee('1,000.00');
 
         // Complete general checkout
@@ -404,7 +405,7 @@ HTML;
         // Checkout page shows campaign attribution
         $checkout = $this->get(route('donations.checkout', $donation->transaction_reference));
         $checkout->assertStatus(200);
-        $checkout->assertSee('Supporting Campaign:');
+        $checkout->assertSee('Campaign:');
         $checkout->assertSee('Mobile Broadcast Van Project');
 
         // Complete payment
@@ -465,5 +466,88 @@ HTML;
         $donation->refresh();
         $this->assertSame('completed', $donation->status);
         $this->assertSame($donation->transaction_reference, $donation->external_reference);
+    }
+
+    public function test_mpesa_donation_requires_only_amount_and_phone_and_auto_triggers_stk_push(): void
+    {
+        $response = $this->post(route('donations.store'), [
+            'gateway_code' => 'mpesa',
+            'amount' => 250,
+            'donor_phone' => '0712345678',
+        ]);
+
+        $donation = Donation::where('donor_phone', '0712345678')->firstOrFail();
+        $this->assertSame('Kisii TV Supporter', $donation->donor_name);
+        $this->assertNull($donation->donor_email);
+        $this->assertNotNull($donation->metadata['checkout_request_id'] ?? null);
+        $response->assertRedirect(route('donations.checkout', $donation->transaction_reference));
+        $response->assertSessionHas('stk_result');
+    }
+
+    public function test_paystack_and_flutterwave_redirect_to_real_hosted_checkout_when_configured(): void
+    {
+        Http::fake([
+            'https://api.paystack.co/transaction/initialize' => Http::response([
+                'status' => true,
+                'data' => [
+                    'authorization_url' => 'https://checkout.paystack.com/test-session-123',
+                ],
+            ], 200),
+            'https://api.paystack.co/transaction/verify/*' => Http::response([
+                'status' => true,
+                'data' => [
+                    'status' => 'success',
+                ],
+            ], 200),
+            'https://api.flutterwave.com/v3/payments' => Http::response([
+                'status' => 'success',
+                'data' => [
+                    'link' => 'https://checkout.flutterwave.com/v3/hosted/pay/test-flw-456',
+                ],
+            ], 200),
+            'https://api.flutterwave.com/v3/transactions/*/verify' => Http::response([
+                'status' => 'success',
+                'data' => [
+                    'status' => 'successful',
+                ],
+            ], 200),
+        ]);
+
+        $paystack = PaymentGateway::where('code', 'paystack')->firstOrFail();
+        $paystack->update(['secret_key' => 'sk_test_paystack_123']);
+
+        $paystackResp = $this->post(route('donations.store'), [
+            'gateway_code' => 'paystack',
+            'amount' => 1000,
+        ]);
+        $paystackResp->assertRedirect('https://checkout.paystack.com/test-session-123');
+
+        $paystackDonation = Donation::where('gateway_code', 'paystack')->latest()->firstOrFail();
+        $callbackResp = $this->get(route('donations.callback', [
+            'gateway' => 'paystack',
+            'reference' => $paystackDonation->transaction_reference,
+        ]));
+        $callbackResp->assertRedirect(route('donations.index'));
+        $this->assertSame('completed', $paystackDonation->fresh()->status);
+
+        $flutterwave = PaymentGateway::where('code', 'flutterwave')->firstOrFail();
+        $flutterwave->update(['secret_key' => 'FLWSECK_TEST-123']);
+
+        $flwResp = $this->post(route('donations.store'), [
+            'gateway_code' => 'flutterwave',
+            'amount' => 2000,
+        ]);
+        $flwResp->assertRedirect('https://checkout.flutterwave.com/v3/hosted/pay/test-flw-456');
+
+        $flwDonation = Donation::where('gateway_code', 'flutterwave')->latest()->firstOrFail();
+        $flwCallback = $this->get(route('donations.callback', [
+            'gateway' => 'flutterwave',
+            'tx_ref' => $flwDonation->transaction_reference,
+            'transaction_id' => '99887766',
+            'status' => 'successful',
+        ]));
+        $flwCallback->assertRedirect(route('donations.index'));
+        $this->assertSame('completed', $flwDonation->fresh()->status);
+        $this->assertSame('99887766', $flwDonation->fresh()->external_reference);
     }
 }

@@ -267,101 +267,12 @@
                             @endif
 
                             @if($activeGateways->isNotEmpty())
-                                <form method="POST" action="{{ route('donations.store') }}" class="space-y-4">
-                                    @csrf
-                                    <input type="hidden" name="live_stream_id" value="{{ $activeStream->id }}">
-
-                                    <!-- Quick Amount Buttons -->
-                                    <div>
-                                        <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-300 mb-2">
-                                            1. Select or Enter Amount
-                                        </label>
-                                        <div class="grid grid-cols-4 gap-2 mb-2.5">
-                                            @foreach([100, 500, 1000, 5000] as $preset)
-                                                <button type="button"
-                                                    @click="amount = '{{ $preset }}'"
-                                                    :class="amount == '{{ $preset }}' ? 'bg-emerald-600 text-white border-emerald-400' : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700'"
-                                                    class="py-2 px-2 text-xs font-black rounded border transition cursor-pointer">
-                                                    {{ number_format($preset) }}
-                                                </button>
-                                            @endforeach
-                                        </div>
-                                        <div class="relative">
-                                            <input type="number" name="amount" x-model="amount" min="10" step="any" required
-                                                placeholder="Enter custom amount..."
-                                                class="w-full bg-slate-950 border border-slate-700 focus:border-emerald-500 rounded px-3.5 py-2.5 text-sm font-bold text-white focus:outline-none">
-                                        </div>
-                                    </div>
-
-                                    <!-- Payment Gateway Selection (M-Pesa, Paystack, PayPal, Flutterwave) -->
-                                    <div>
-                                        <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-300 mb-2">
-                                            2. Choose Payment Method
-                                        </label>
-                                        <div class="grid grid-cols-2 gap-2">
-                                            @foreach($activeGateways as $gw)
-                                                <label @click="gateway = '{{ $gw->code }}'"
-                                                    :class="gateway === '{{ $gw->code }}' ? 'border-emerald-400 bg-emerald-950/40 text-white' : 'border-slate-700 bg-slate-950/60 text-slate-300 hover:border-slate-600'"
-                                                    class="border-2 rounded p-2.5 cursor-pointer transition flex flex-col justify-between">
-                                                    <div class="flex items-center justify-between">
-                                                        <input type="radio" name="gateway_code" value="{{ $gw->code }}" x-model="gateway" class="sr-only">
-                                                        <span class="text-xs font-black uppercase tracking-wide">{{ $gw->code === 'mpesa' ? 'M-Pesa' : ucfirst($gw->code) }}</span>
-                                                        <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-800 text-emerald-300">{{ $gw->currency }}</span>
-                                                    </div>
-                                                    <span class="text-[10px] text-slate-400 mt-1 line-clamp-1">{{ $gw->provider_label ?? $gw->name }}</span>
-                                                </label>
-                                            @endforeach
-                                        </div>
-                                    </div>
-
-                                    <!-- Donor Information -->
-                                    <div class="space-y-3 pt-1">
-                                        <div>
-                                            <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-300 mb-1">Your Name *</label>
-                                            <input type="text" name="donor_name" value="{{ old('donor_name', auth()->user()?->name) }}" required
-                                                placeholder="e.g. Eng. Kemunto Nyabuto"
-                                                class="w-full bg-slate-950 border border-slate-700 focus:border-emerald-500 rounded px-3 py-2 text-xs text-white focus:outline-none">
-                                        </div>
-
-                                        <div x-show="gateway === 'mpesa'" x-cloak>
-                                            <label class="block text-[11px] font-bold uppercase tracking-wider text-emerald-400 mb-1">M-Pesa Phone Number *</label>
-                                            <input type="text" name="donor_phone" value="{{ old('donor_phone') }}"
-                                                placeholder="e.g. 0712345678 or 254712345678"
-                                                class="w-full bg-slate-950 border border-emerald-500/60 focus:border-emerald-400 rounded px-3 py-2 text-xs text-white focus:outline-none">
-                                        </div>
-
-                                        <div>
-                                            <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-300 mb-1">Email Address (Optional)</label>
-                                            <input type="email" name="donor_email" value="{{ old('donor_email', auth()->user()?->email) }}"
-                                                placeholder="you@example.com"
-                                                class="w-full bg-slate-950 border border-slate-700 focus:border-emerald-500 rounded px-3 py-2 text-xs text-white focus:outline-none">
-                                        </div>
-
-                                        <div>
-                                            <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-300 mb-1">Support Comment (Optional)</label>
-                                            <textarea name="message" rows="2" placeholder="Leave a message for the live desk..."
-                                                class="w-full bg-slate-950 border border-slate-700 focus:border-emerald-500 rounded px-3 py-2 text-xs text-white focus:outline-none">{{ old('message') }}</textarea>
-                                        </div>
-
-                                        <label class="flex items-center space-x-2 text-xs text-slate-400 cursor-pointer">
-                                            <input type="checkbox" name="is_anonymous" value="1" {{ old('is_anonymous') ? 'checked' : '' }}
-                                                class="rounded bg-slate-950 border-slate-700 text-emerald-600 focus:ring-0">
-                                            <span>Make my contribution anonymous on the public feed</span>
-                                        </label>
-                                    </div>
-
-                                    <div class="flex items-center justify-end space-x-3 pt-2 border-t border-slate-800">
-                                        <button type="button" @click="donateModalOpen = false"
-                                            class="px-4 py-2.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition cursor-pointer">
-                                            Cancel
-                                        </button>
-                                        <button type="submit"
-                                            class="py-2.5 px-5 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs uppercase tracking-wider rounded shadow-lg transition cursor-pointer flex items-center space-x-2">
-                                            <span>Proceed to Donate</span>
-                                            <span>&rarr;</span>
-                                        </button>
-                                    </div>
-                                </form>
+                                <x-donation-form
+                                    :gateways="$activeGateways"
+                                    :live-stream-id="$activeStream->id"
+                                    :presets="[100, 500, 1000, 5000]"
+                                    cancel-action="donateModalOpen = false"
+                                />
                             @else
                                 <div class="p-4 rounded bg-slate-950 border border-slate-800 text-xs text-slate-400 text-center">
                                     Payment gateways are currently being configured by the administrator.
