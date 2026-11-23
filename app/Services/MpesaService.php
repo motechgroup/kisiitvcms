@@ -57,10 +57,10 @@ class MpesaService
         $consumerSecret = $gateway->secret_key;
         $passkey = $gateway->passkey_or_webhook_secret;
 
-        // If credentials are empty or marked as test mode, run robust simulation
-        $isLiveConfigured = ! empty($consumerKey) && ! empty($consumerSecret) && ! empty($passkey) && ! $gateway->is_test_mode;
+        // If Daraja credentials are empty, run simulation
+        $isDarajaConfigured = ! empty($consumerKey) && ! empty($consumerSecret) && ! empty($passkey);
 
-        if (! $isLiveConfigured) {
+        if (! $isDarajaConfigured) {
             $simulatedCheckoutId = 'ws_CO_'.date('YmdHis').'_'.rand(1000, 9999);
 
             $meta = $donation->metadata ?? [];
@@ -105,7 +105,7 @@ class MpesaService
                 ? 'https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest'
                 : 'https://api.safaricom.co.ke/mpesa/stkpush/v1/processrequest';
 
-            $callbackUrl = route('donations.webhook', 'mpesa');
+            $callbackUrl = trim((string) $gateway->callback_url) ?: route('donations.webhook', 'mpesa');
 
             $payload = [
                 'BusinessShortCode' => $shortcode,

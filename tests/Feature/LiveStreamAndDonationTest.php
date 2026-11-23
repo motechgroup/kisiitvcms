@@ -45,6 +45,20 @@ class LiveStreamAndDonationTest extends TestCase
         if ($superAdminRole) {
             $this->superAdmin->roles()->attach($superAdminRole->id);
         }
+
+        Http::fake([
+            'https://sandbox.safaricom.co.ke/oauth/v1/generate*' => Http::response([
+                'access_token' => 'test_daraja_token_abc',
+                'expires_in' => '3599',
+            ], 200),
+            'https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest' => Http::response([
+                'MerchantRequestID' => '29115-34620561-1',
+                'CheckoutRequestID' => 'ws_CO_191220191020363925',
+                'ResponseCode' => '0',
+                'ResponseDescription' => 'Success. Request accepted for processing',
+                'CustomerMessage' => 'Success. Request accepted for processing',
+            ], 200),
+        ]);
     }
 
     public function test_admin_can_create_youtube_twitch_and_facebook_live_streams_with_auto_resolved_embeds(): void
@@ -231,8 +245,15 @@ HTML;
         $indexResponse->assertSee('Paystack');
         $indexResponse->assertSee('PayPal');
         $indexResponse->assertSee('Flutterwave');
+        $indexResponse->assertSee('showPublic');
+        $indexResponse->assertSee('showSecret');
+        $indexResponse->assertSee('showPasskey');
+        $indexResponse->assertSee('https://lindrapp.top/api/v1/webhooks/mpesa');
 
         $mpesa = PaymentGateway::where('code', 'mpesa')->firstOrFail();
+        $this->assertSame('9a7lKfNJxw0eIiCay8OqFHeBGNXSfBLQTxWRACneeKEfSBjD', $mpesa->public_key);
+        $this->assertSame('174379', $mpesa->shortcode_or_merchant_id);
+        $this->assertSame('https://lindrapp.top/api/v1/webhooks/mpesa', $mpesa->callback_url);
 
         $updateResponse = $this->actingAs($this->superAdmin)->put(route('admin.payment-gateways.update', $mpesa), [
             'name' => 'M-Pesa Daraja Express',
