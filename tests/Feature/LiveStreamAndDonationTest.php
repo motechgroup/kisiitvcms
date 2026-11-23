@@ -313,8 +313,8 @@ HTML;
         $portal = $this->get(route('donations.index'));
         $portal->assertStatus(200);
         $portal->assertSee('Support Kisii TV Newsroom');
-        $portal->assertSee('174379');
-        $portal->assertSee('KISIITV');
+        $portal->assertSee('mpesa.jpg');
+        $portal->assertSee('paystack.png');
 
         // Initiate general donation (without live_stream_id)
         $store = $this->post(route('donations.store'), [

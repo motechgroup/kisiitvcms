@@ -50,27 +50,32 @@
         <label class="block text-[11px] font-black uppercase tracking-wider text-slate-300 mb-2">
             2. Choose Payment Method
         </label>
-        <div class="grid grid-cols-2 gap-2">
+        <div class="grid grid-cols-2 gap-3">
             @foreach($gateways as $gw)
                 <label @click="{{ $gatewayModel }} = '{{ $gw->code }}'"
-                    :class="{{ $gatewayModel }} === '{{ $gw->code }}' ? 'border-emerald-400 bg-emerald-950/40 text-white shadow' : 'border-slate-800 bg-slate-950/60 text-slate-300 hover:border-slate-600'"
-                    class="border-2 rounded-xl p-2.5 cursor-pointer transition flex flex-col justify-between">
-                    <div class="flex items-center justify-between gap-2">
-                        <input type="radio" name="gateway_code" value="{{ $gw->code }}" x-model="{{ $gatewayModel }}" class="sr-only">
-                        <div class="flex items-center space-x-2 min-w-0">
-                            @if($gwLogo = $gw->logoUrl())
-                                <img src="{{ $gwLogo }}" alt="{{ $gw->name }}" class="h-6 w-10 object-cover rounded shrink-0 shadow-sm">
-                            @endif
-                            <span class="text-xs font-black uppercase tracking-wide truncate">
-                                {{ $gw->code === 'mpesa' ? 'M-Pesa' : ucfirst($gw->code) }}
+                    :class="{{ $gatewayModel }} === '{{ $gw->code }}' ? 'border-emerald-400 ring-2 ring-emerald-400/70 shadow-lg scale-[1.01]' : 'border-slate-700 opacity-80 hover:opacity-100 hover:border-slate-500'"
+                    class="relative border-2 rounded-xl overflow-hidden cursor-pointer transition bg-slate-950 flex items-center justify-center h-20 sm:h-24">
+                    <input type="radio" name="gateway_code" value="{{ $gw->code }}" x-model="{{ $gatewayModel }}" class="sr-only">
+
+                    @if($gwLogo = $gw->logoUrl())
+                        <img src="{{ $gwLogo }}" alt="{{ $gw->name }}" class="w-full h-full object-cover">
+                    @else
+                        <div class="p-3 text-center">
+                            <span class="text-sm font-black uppercase tracking-wide text-white block">
+                                {{ ucfirst($gw->code) }}
+                            </span>
+                            <span class="text-[10px] font-mono text-emerald-300">
+                                {{ $gw->currency }}
                             </span>
                         </div>
-                        <span class="text-[9px] font-mono px-1.5 py-0.5 rounded bg-slate-800 text-emerald-300 shrink-0">
-                            {{ $gw->currency }}
-                        </span>
-                    </div>
-                    <span class="text-[10px] text-slate-400 mt-1 line-clamp-1">
-                        {{ $gw->provider_label ?? $gw->name }}
+                    @endif
+
+                    <!-- Selected Checkmark Badge -->
+                    <span x-show="{{ $gatewayModel }} === '{{ $gw->code }}'" x-cloak
+                        class="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-emerald-500 text-slate-950 flex items-center justify-center shadow-md">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
                     </span>
                 </label>
             @endforeach
@@ -80,15 +85,12 @@
     <!-- 3. Streamlined Gateway Input -->
     <div x-show="{{ $gatewayModel }} === 'mpesa'" x-cloak class="bg-emerald-950/20 border border-emerald-500/30 rounded-xl p-3.5 space-y-1.5">
         <label class="block text-[11px] font-black uppercase tracking-wider text-emerald-400">
-            3. Enter M-Pesa Phone Number *
+            3. M-Pesa Phone Number *
         </label>
         <input type="tel" name="donor_phone" value="{{ old('donor_phone') }}"
             :required="{{ $gatewayModel }} === 'mpesa'"
             placeholder="e.g. 0712345678"
             class="w-full bg-slate-950 border border-emerald-500/60 focus:border-emerald-400 rounded-lg px-3.5 py-2.5 text-sm font-mono font-bold text-white focus:outline-none">
-        <p class="text-[10px] text-slate-400">
-            Instant STK Push prompt will be sent straight to your phone. No extra details needed.
-        </p>
     </div>
 
     <div x-show="{{ $gatewayModel }} !== 'mpesa'" x-cloak class="bg-slate-950/70 border border-slate-800 rounded-xl p-3 text-[11px] text-slate-300">
@@ -144,7 +146,7 @@
 
         <button type="submit"
             class="{{ $cancelAction ? '' : 'w-full' }} py-3 px-5 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs uppercase tracking-wider rounded-xl shadow-lg transition cursor-pointer flex items-center justify-center space-x-2">
-            <span x-show="{{ $gatewayModel }} === 'mpesa'">Send M-Pesa STK Prompt &rarr;</span>
+            <span x-show="{{ $gatewayModel }} === 'mpesa'">Donate with M-Pesa &rarr;</span>
             <span x-show="{{ $gatewayModel }} === 'paystack'" x-cloak>Continue to Paystack Checkout &rarr;</span>
             <span x-show="{{ $gatewayModel }} === 'flutterwave'" x-cloak>Continue to Flutterwave Checkout &rarr;</span>
             <span x-show="{{ $gatewayModel }} === 'paypal'" x-cloak>Continue to PayPal &rarr;</span>

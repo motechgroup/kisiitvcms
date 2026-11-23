@@ -321,7 +321,7 @@
                 <div class="bg-gradient-to-br from-slate-900 to-[#0a1c3d] border-2 border-emerald-500/40 rounded-xl p-4 text-white shadow-md space-y-3">
                     <div class="flex items-center justify-between">
                         <span class="text-[10px] font-black uppercase tracking-widest text-emerald-400">Support Our Desk</span>
-                        <span class="text-[9px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300">M-Pesa 174379</span>
+                        <span class="text-[9px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300">M-Pesa &amp; Card</span>
                     </div>
                     <div>
                         <h4 class="text-sm font-bold font-headline text-white">Stand With Independent Journalism</h4>

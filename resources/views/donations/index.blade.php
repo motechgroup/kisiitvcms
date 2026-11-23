@@ -85,39 +85,8 @@
                 </div>
             </div>
 
-            <!-- Right Column: Direct Paybill Info & Mission Impact (5 Cols) -->
+            <!-- Right Column: Mission Impact (5 Cols) -->
             <div class="lg:col-span-5 space-y-6">
-
-                <!-- Safaricom M-Pesa Quick Paybill Card -->
-                <div class="bg-gradient-to-br from-slate-900 to-[#0a1c3d] border-2 border-emerald-500/50 rounded-2xl p-6 text-white shadow-xl space-y-4">
-                    <div class="flex items-center justify-between">
-                        <span class="text-[10px] font-black uppercase tracking-widest text-emerald-400">Direct Paybill Desk</span>
-                        <span class="bg-emerald-500/20 text-emerald-300 text-[10px] font-mono px-2 py-0.5 rounded border border-emerald-500/30">Instant</span>
-                    </div>
-
-                    <div>
-                        <h3 class="text-base font-black font-headline text-white">Manual Lipa na M-Pesa Instructions</h3>
-                        <p class="text-xs text-slate-300 mt-1">If you prefer manual payment on your phone's M-Pesa SIM Toolkit menu:</p>
-                    </div>
-
-                    <div class="bg-slate-950 border border-slate-800 rounded-xl p-4 grid grid-cols-2 gap-4 text-xs font-mono">
-                        <div>
-                            <span class="text-[10px] uppercase font-bold text-slate-400 block font-sans">Business / Paybill</span>
-                            <span class="text-lg font-black text-emerald-400">174379</span>
-                        </div>
-                        <div>
-                            <span class="text-[10px] uppercase font-bold text-slate-400 block font-sans">Account Number</span>
-                            <span class="text-lg font-black text-white">KISIITV</span>
-                        </div>
-                    </div>
-
-                    <ol class="list-decimal list-inside text-xs text-slate-300 space-y-1 font-medium leading-relaxed">
-                        <li>Go to <strong>M-Pesa</strong> &rarr; <strong>Lipa na M-Pesa</strong> &rarr; <strong>Paybill</strong></li>
-                        <li>Enter Business Number <strong>174379</strong></li>
-                        <li>Enter Account Number <strong>KISIITV</strong></li>
-                        <li>Enter your preferred amount &amp; your M-Pesa PIN</li>
-                    </ol>
-                </div>
 
                 <!-- Three Impact Pillars -->
                 <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-5">
