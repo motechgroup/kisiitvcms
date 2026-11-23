@@ -86,7 +86,7 @@ class PaymentGateway extends Model
                 'passkey_or_webhook_secret' => 'bfb279f9aa9bdbcf158e97dd71a467cd2e0c893059b10f78e6b72ada1ed2c919',
                 'shortcode_or_merchant_id' => '174379',
                 'account_reference' => 'KISIITV',
-                'callback_url' => 'https://lindrapp.top/api/v1/webhooks/mpesa',
+                'callback_url' => 'https://kisiitv.co.ke/donations/webhook/mpesa',
                 'instructions' => 'Enter your M-Pesa phone number (07xx or 2547xx) to receive an instant STK push prompt on your phone, or use Paybill 174379 Account KISIITV.',
                 'display_order' => 1,
             ],

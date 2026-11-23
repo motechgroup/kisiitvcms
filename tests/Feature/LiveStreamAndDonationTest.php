@@ -248,12 +248,12 @@ HTML;
         $indexResponse->assertSee('showPublic');
         $indexResponse->assertSee('showSecret');
         $indexResponse->assertSee('showPasskey');
-        $indexResponse->assertSee('https://lindrapp.top/api/v1/webhooks/mpesa');
+        $indexResponse->assertSee('https://kisiitv.co.ke/donations/webhook/mpesa');
 
         $mpesa = PaymentGateway::where('code', 'mpesa')->firstOrFail();
         $this->assertSame('9a7lKfNJxw0eIiCay8OqFHeBGNXSfBLQTxWRACneeKEfSBjD', $mpesa->public_key);
         $this->assertSame('174379', $mpesa->shortcode_or_merchant_id);
-        $this->assertSame('https://lindrapp.top/api/v1/webhooks/mpesa', $mpesa->callback_url);
+        $this->assertSame('https://kisiitv.co.ke/donations/webhook/mpesa', $mpesa->callback_url);
 
         $updateResponse = $this->actingAs($this->superAdmin)->put(route('admin.payment-gateways.update', $mpesa), [
             'name' => 'M-Pesa Daraja Express',
