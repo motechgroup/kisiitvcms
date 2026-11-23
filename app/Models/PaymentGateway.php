@@ -53,6 +53,18 @@ class PaymentGateway extends Model
     }
 
     /**
+     * Get the public logo asset URL for the payment gateway, if available.
+     */
+    public function logoUrl(): ?string
+    {
+        return match ($this->code) {
+            'mpesa' => asset('images/gateways/mpesa.jpg'),
+            'paystack' => asset('images/gateways/paystack.png'),
+            default => null,
+        };
+    }
+
+    /**
      * Default gateways supported by the platform.
      *
      * @return array<int, array<string, mixed>>

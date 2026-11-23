@@ -145,13 +145,18 @@
         <div class="bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden">
             <!-- Header -->
             <div class="bg-[#0a1c3d] px-6 py-5 border-b border-slate-800 flex items-center justify-between">
-                <div>
-                    <span class="text-[10px] font-black uppercase tracking-widest text-emerald-400 block">
-                        {{ strtoupper($donation->gateway_code) }} Instant Checkout
-                    </span>
-                    <h1 class="text-lg sm:text-xl font-black font-headline text-white mt-0.5">
-                        {{ $donation->currency }} {{ number_format((float) $donation->amount, 2) }}
-                    </h1>
+                <div class="flex items-center space-x-3">
+                    @if($gwLogo = $donation->paymentGateway?->logoUrl())
+                        <img src="{{ $gwLogo }}" alt="{{ $donation->gateway_code }}" class="h-10 w-16 object-cover rounded-lg border border-slate-700 shadow-sm shrink-0">
+                    @endif
+                    <div>
+                        <span class="text-[10px] font-black uppercase tracking-widest text-emerald-400 block">
+                            {{ strtoupper($donation->gateway_code) }} Instant Checkout
+                        </span>
+                        <h1 class="text-lg sm:text-xl font-black font-headline text-white mt-0.5">
+                            {{ $donation->currency }} {{ number_format((float) $donation->amount, 2) }}
+                        </h1>
+                    </div>
                 </div>
                 <span class="px-3 py-1 rounded bg-slate-950 border border-slate-700 font-mono text-xs text-slate-300">
                     {{ $donation->transaction_reference }}

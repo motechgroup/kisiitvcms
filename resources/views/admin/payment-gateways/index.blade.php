@@ -32,18 +32,23 @@
 
                 <!-- Card Top Banner -->
                 <div class="bg-[#0a1c3d] text-white px-5 py-4 flex items-start justify-between gap-3">
-                    <div>
-                        <div class="flex items-center space-x-2">
-                            <span class="text-sm font-black uppercase tracking-wider font-headline group-hover:text-blue-300 transition">
-                                {{ $gateway->name }}
-                            </span>
-                            <span class="px-2 py-0.5 rounded bg-slate-800 text-blue-300 font-mono text-[10px] uppercase">
-                                {{ $gateway->code }}
-                            </span>
+                    <div class="flex items-start space-x-3">
+                        @if($gwLogo = $gateway->logoUrl())
+                            <img src="{{ $gwLogo }}" alt="{{ $gateway->name }}" class="h-10 w-16 object-cover rounded-lg border border-slate-700 shadow-sm shrink-0">
+                        @endif
+                        <div>
+                            <div class="flex items-center space-x-2">
+                                <span class="text-sm font-black uppercase tracking-wider font-headline group-hover:text-blue-300 transition">
+                                    {{ $gateway->name }}
+                                </span>
+                                <span class="px-2 py-0.5 rounded bg-slate-800 text-blue-300 font-mono text-[10px] uppercase">
+                                    {{ $gateway->code }}
+                                </span>
+                            </div>
+                            <p class="text-[11px] text-slate-300 mt-1 line-clamp-2">
+                                {{ $gateway->description }}
+                            </p>
                         </div>
-                        <p class="text-[11px] text-slate-300 mt-1 line-clamp-2">
-                            {{ $gateway->description }}
-                        </p>
                     </div>
 
                     <!-- Quick Status & Mode Badges (Stop click propagation so quick-toggles work directly) -->

@@ -55,12 +55,17 @@
                 <label @click="{{ $gatewayModel }} = '{{ $gw->code }}'"
                     :class="{{ $gatewayModel }} === '{{ $gw->code }}' ? 'border-emerald-400 bg-emerald-950/40 text-white shadow' : 'border-slate-800 bg-slate-950/60 text-slate-300 hover:border-slate-600'"
                     class="border-2 rounded-xl p-2.5 cursor-pointer transition flex flex-col justify-between">
-                    <div class="flex items-center justify-between">
+                    <div class="flex items-center justify-between gap-2">
                         <input type="radio" name="gateway_code" value="{{ $gw->code }}" x-model="{{ $gatewayModel }}" class="sr-only">
-                        <span class="text-xs font-black uppercase tracking-wide">
-                            {{ $gw->code === 'mpesa' ? 'M-Pesa' : ucfirst($gw->code) }}
-                        </span>
-                        <span class="text-[9px] font-mono px-1.5 py-0.5 rounded bg-slate-800 text-emerald-300">
+                        <div class="flex items-center space-x-2 min-w-0">
+                            @if($gwLogo = $gw->logoUrl())
+                                <img src="{{ $gwLogo }}" alt="{{ $gw->name }}" class="h-6 w-10 object-cover rounded shrink-0 shadow-sm">
+                            @endif
+                            <span class="text-xs font-black uppercase tracking-wide truncate">
+                                {{ $gw->code === 'mpesa' ? 'M-Pesa' : ucfirst($gw->code) }}
+                            </span>
+                        </div>
+                        <span class="text-[9px] font-mono px-1.5 py-0.5 rounded bg-slate-800 text-emerald-300 shrink-0">
                             {{ $gw->currency }}
                         </span>
                     </div>
