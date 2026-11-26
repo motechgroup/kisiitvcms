@@ -7,10 +7,29 @@ use App\Models\Article;
 use App\Models\ArticleView;
 use App\Models\Category;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\View\View;
 
 class ArticleController extends Controller
 {
+    /**
+     * Listing columns for sidebar and related story cards.
+     *
+     * @var array<int, string>
+     */
+    private const LISTING_COLUMNS = [
+        'id',
+        'title',
+        'slug',
+        'summary',
+        'featured_image',
+        'category_id',
+        'user_id',
+        'published_at',
+        'view_count',
+        'status',
+    ];
+
     /**
      * Display a published news article.
      */
@@ -21,54 +40,62 @@ class ArticleController extends Controller
             abort_unless(auth()->check(), 404);
         }
 
-        // Increment view count
-        $article->increment('view_count');
+        // Record view analytics after the response is flushed to the browser
+        $articleId = $article->id;
+        $ipAddress = $request->ip();
+        $userAgent = $request->userAgent();
+        $referer = $request->header('referer');
 
-        // Record analytical view
-        ArticleView::create([
-            'article_id' => $article->id,
-            'ip_address' => $request->ip(),
-            'user_agent' => $request->userAgent(),
-            'referer' => $request->header('referer'),
-            'viewed_at' => now(),
-        ]);
+        defer(function () use ($articleId, $ipAddress, $userAgent, $referer): void {
+            Article::whereKey($articleId)->increment('view_count');
+            ArticleView::create([
+                'article_id' => $articleId,
+                'ip_address' => $ipAddress,
+                'user_agent' => $userAgent,
+                'referer' => $referer,
+                'viewed_at' => now(),
+            ]);
+        });
 
         $article->load(['category', 'author', 'tags']);
 
-        // Navigation Categories
-        $navCategories = Category::roots()
-            ->menu()
-            ->with(['children' => fn ($q) => $q->menu()])
-            ->get();
+        // Cached Navigation Categories
+        $navCategories = Category::cachedNavCategories();
 
         // Related stories in same category
-        $relatedArticles = Article::published()
+        $relatedArticles = Article::select(self::LISTING_COLUMNS)
+            ->published()
             ->where('category_id', $article->category_id)
             ->where('id', '!=', $article->id)
-            ->with(['category', 'author'])
+            ->with(['category:id,name,slug', 'author:id,name,username,avatar'])
             ->latest('published_at')
             ->take(4)
             ->get();
 
-        // Trending / Most read stories for sidebar
-        $mostRead = Article::published()
-            ->where('id', '!=', $article->id)
-            ->with(['category', 'author'])
-            ->orderByDesc('view_count')
-            ->take(5)
-            ->get();
+        // Cached Trending / Most read stories for sidebar
+        $mostRead = Cache::remember('sidebar_most_read', 180, function () {
+            return Article::select(self::LISTING_COLUMNS)
+                ->published()
+                ->with(['category:id,name,slug', 'author:id,name,username,avatar'])
+                ->orderByDesc('view_count')
+                ->take(6)
+                ->get();
+        })->where('id', '!=', $article->id)->take(5)->values();
 
-        // Latest wire items
-        $latestWire = Article::published()
-            ->where('id', '!=', $article->id)
-            ->with(['category', 'author'])
-            ->latest('published_at')
-            ->take(5)
-            ->get();
+        // Cached Latest wire items
+        $latestWire = Cache::remember('sidebar_latest_wire', 120, function () {
+            return Article::select(self::LISTING_COLUMNS)
+                ->published()
+                ->with(['category:id,name,slug', 'author:id,name,username,avatar'])
+                ->latest('published_at')
+                ->take(6)
+                ->get();
+        })->where('id', '!=', $article->id)->take(5)->values();
 
         // Sidebar Ad
-        $sidebarAdPlacement = AdPlacement::where('slug', 'sidebar-mrec')->first();
-        $sidebarAd = $sidebarAdPlacement?->advertisements()->active()->inRandomOrder()->first();
+        $sidebarAd = Cache::remember('ad_sidebar_mrec', 180, function () {
+            return AdPlacement::where('slug', 'sidebar-mrec')->first()?->activeAdvertisement();
+        });
 
         return view('articles.show', compact(
             'article',

@@ -9,10 +9,23 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Support\Facades\Cache;
 
 class Article extends Model
 {
     use HasFactory;
+
+    protected static function booted(): void
+    {
+        $flush = static function (): void {
+            Cache::forget('homepage_data_v1');
+            Cache::forget('sidebar_most_read');
+            Cache::forget('sidebar_latest_wire');
+        };
+
+        static::saved($flush);
+        static::deleted($flush);
+    }
 
     protected $fillable = [
         'title',

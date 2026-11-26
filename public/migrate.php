@@ -237,7 +237,7 @@ try {
     $output['storage'] = 'Storage notice: '.$e->getMessage();
 }
 
-// 5. Clear Stale Caches & Precompile Views
+// 5. Clear Stale Caches & Rebuild Production Optimization Caches (Config, Routes, Views)
 try {
     Artisan::call('optimize:clear');
     $output['cache'] = Artisan::output();
@@ -246,10 +246,10 @@ try {
 }
 
 try {
-    Artisan::call('view:cache');
+    Artisan::call('optimize');
     $output['views'] = Artisan::output();
 } catch (Throwable $e) {
-    $output['views'] = 'View cache notice: '.$e->getMessage();
+    $output['views'] = 'Optimize cache notice: '.$e->getMessage();
 }
 
 // 6. Test-run /admin route simulation as Super Admin to capture any real exception

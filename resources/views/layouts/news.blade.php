@@ -174,7 +174,7 @@
     </style>
 </head>
 @php
-    $globalActiveGateways = \App\Models\PaymentGateway::where('is_active', true)->orderBy('display_order')->get();
+    $globalActiveGateways = \App\Models\PaymentGateway::cachedActivePublic();
     $globalDefaultGateway = $globalActiveGateways->first()?->code ?? 'paystack';
 @endphp
 <body class="min-h-full font-sans-body antialiased text-slate-900 bg-white flex flex-col justify-between selection:bg-[#d9252a] selection:text-white" x-data="{ mobileMenuOpen: false, searchOpen: false, globalDonateOpen: false, globalAmount: '500', globalGateway: '{{ $globalDefaultGateway }}' }" @open-donate-modal.window="globalDonateOpen = true; if ($event.detail && $event.detail.amount) globalAmount = $event.detail.amount; if ($event.detail && $event.detail.gateway) globalGateway = $event.detail.gateway;">

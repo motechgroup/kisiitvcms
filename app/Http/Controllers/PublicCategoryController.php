@@ -5,10 +5,29 @@ namespace App\Http\Controllers;
 use App\Models\AdPlacement;
 use App\Models\Article;
 use App\Models\Category;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\View\View;
 
 class PublicCategoryController extends Controller
 {
+    /**
+     * Listing columns needed on category archive cards.
+     *
+     * @var array<int, string>
+     */
+    private const LISTING_COLUMNS = [
+        'id',
+        'title',
+        'slug',
+        'summary',
+        'featured_image',
+        'category_id',
+        'user_id',
+        'published_at',
+        'view_count',
+        'status',
+    ];
+
     /**
      * Display a category archive / section wire.
      */
@@ -21,30 +40,32 @@ class PublicCategoryController extends Controller
             ->orWhere('parent_id', $category->id)
             ->pluck('id');
 
-        $articles = Article::published()
+        $articles = Article::select(self::LISTING_COLUMNS)
+            ->published()
             ->whereIn('category_id', $categoryIds)
-            ->with(['category', 'author'])
+            ->with(['category:id,name,slug', 'author:id,name,username,avatar'])
             ->latest('published_at')
             ->paginate(12);
 
         $subcategories = $category->children()->where('is_active', true)->get();
 
-        // Navigation Categories
-        $navCategories = Category::roots()
-            ->menu()
-            ->with(['children' => fn ($q) => $q->menu()])
-            ->get();
+        // Cached Navigation Categories
+        $navCategories = Category::cachedNavCategories();
 
-        // Trending within or across
-        $mostRead = Article::published()
-            ->with(['category', 'author'])
-            ->orderByDesc('view_count')
-            ->take(5)
-            ->get();
+        // Cached Trending stories
+        $mostRead = Cache::remember('sidebar_most_read', 180, function () {
+            return Article::select(self::LISTING_COLUMNS)
+                ->published()
+                ->with(['category:id,name,slug', 'author:id,name,username,avatar'])
+                ->orderByDesc('view_count')
+                ->take(6)
+                ->get();
+        })->take(5)->values();
 
-        // Sidebar Ad
-        $sidebarAdPlacement = AdPlacement::where('slug', 'sidebar-mrec')->first();
-        $sidebarAd = $sidebarAdPlacement?->advertisements()->active()->inRandomOrder()->first();
+        // Cached Sidebar Ad
+        $sidebarAd = Cache::remember('ad_sidebar_mrec', 180, function () {
+            return AdPlacement::where('slug', 'sidebar-mrec')->first()?->activeAdvertisement();
+        });
 
         return view('categories.show', compact(
             'category',

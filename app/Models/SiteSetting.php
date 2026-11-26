@@ -19,23 +19,44 @@ class SiteSetting extends Model
     ];
 
     /**
-     * Get a setting by key with caching.
+     * Load all settings once per request from a single memoized cache entry.
+     *
+     * @return array<string, mixed>
+     */
+    protected static function allCached(): array
+    {
+        return Cache::memo()->remember('site_settings_all', 3600, function (): array {
+            $result = [];
+
+            foreach (self::all(['key', 'value', 'type']) as $setting) {
+                $result[$setting->key] = match ($setting->type) {
+                    'boolean' => filter_var($setting->value, FILTER_VALIDATE_BOOLEAN),
+                    'integer' => (int) $setting->value,
+                    'json' => json_decode($setting->value, true) ?? [],
+                    default => $setting->value,
+                };
+            }
+
+            return $result;
+        });
+    }
+
+    /**
+     * Clear both memoized and persistent settings caches.
+     */
+    public static function clearCache(): void
+    {
+        Cache::memo()->forget('site_settings_all');
+    }
+
+    /**
+     * Get a setting by key with single-query + in-memory caching.
      */
     public static function get(string $key, mixed $default = null): mixed
     {
-        return Cache::remember("site_setting_{$key}", 3600, function () use ($key, $default) {
-            $setting = self::where('key', $key)->first();
-            if (! $setting) {
-                return $default;
-            }
+        $settings = self::allCached();
 
-            return match ($setting->type) {
-                'boolean' => filter_var($setting->value, FILTER_VALIDATE_BOOLEAN),
-                'integer' => (int) $setting->value,
-                'json' => json_decode($setting->value, true) ?? [],
-                default => $setting->value,
-            };
-        });
+        return array_key_exists($key, $settings) ? $settings[$key] : $default;
     }
 
     /**
@@ -60,6 +81,7 @@ class SiteSetting extends Model
         );
 
         Cache::forget("site_setting_{$key}");
+        self::clearCache();
 
         return $setting;
     }

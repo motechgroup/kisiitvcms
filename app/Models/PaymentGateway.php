@@ -5,9 +5,11 @@ namespace App\Models;
 use Illuminate\Contracts\Encryption\DecryptException;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Crypt;
 
 class PaymentGateway extends Model
@@ -88,6 +90,27 @@ class PaymentGateway extends Model
         } catch (DecryptException) {
             return $value;
         }
+    }
+
+    protected static function booted(): void
+    {
+        static::saved(fn () => Cache::forget('active_public_payment_gateways'));
+        static::deleted(fn () => Cache::forget('active_public_payment_gateways'));
+    }
+
+    /**
+     * Cached public-safe list of active payment gateways for global layout rendering
+     * without fetching or decrypting API secrets on every page load.
+     *
+     * @return Collection<int, self>
+     */
+    public static function cachedActivePublic(): Collection
+    {
+        return Cache::remember('active_public_payment_gateways', 300, function (): Collection {
+            return self::where('is_active', true)
+                ->orderBy('display_order')
+                ->get(['id', 'name', 'code', 'provider_label', 'currency', 'display_order']);
+        });
     }
 
     public function donations(): HasMany

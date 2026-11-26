@@ -9,120 +9,160 @@ use App\Models\Category;
 use App\Models\HomepageSection;
 use App\Models\LiveBlog;
 use App\Models\Tag;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\View\View;
 
 class HomeController extends Controller
 {
     /**
+     * Listing columns needed on homepage cards (omits large HTML content bodies).
+     *
+     * @var array<int, string>
+     */
+    private const LISTING_COLUMNS = [
+        'id',
+        'title',
+        'slug',
+        'summary',
+        'featured_image',
+        'category_id',
+        'subcategory_id',
+        'user_id',
+        'published_at',
+        'view_count',
+        'is_featured',
+        'is_breaking',
+        'article_type',
+        'reading_time_minutes',
+        'video_url',
+        'status',
+    ];
+
+    /**
      * Display the newsroom public homepage.
      */
     public function index(): View
     {
-        // 1. Breaking News ticker items
-        $breakingNews = BreakingNews::active()->get();
+        $navCategories = Category::cachedNavCategories();
 
-        // 2. Navigation Categories (Root categories with active children)
-        $navCategories = Category::roots()
-            ->menu()
-            ->with(['children' => fn ($q) => $q->menu()])
-            ->get();
+        $homeData = Cache::remember('homepage_data_v1', 120, function (): array {
+            // 1. Breaking News ticker items
+            $breakingNews = BreakingNews::active()->get();
 
-        // 3. Lead Story
-        $leadSection = HomepageSection::where('slug', 'lead-story')->active()->first();
-        $leadStory = $leadSection?->articles()
-            ->published()
-            ->with(['category', 'author'])
-            ->first();
-
-        if (! $leadStory) {
-            $leadStory = Article::published()
-                ->where('is_featured', true)
-                ->with(['category', 'author'])
-                ->latest('published_at')
+            // 2. Lead Story
+            $leadSection = HomepageSection::where('slug', 'lead-story')->active()->first();
+            $leadStory = $leadSection?->articles()
+                ->select(array_map(fn (string $col) => "articles.{$col}", self::LISTING_COLUMNS))
+                ->published()
+                ->with(['category:id,name,slug', 'author:id,name,username,avatar'])
                 ->first();
-        }
 
-        $excludeIds = $leadStory ? [$leadStory->id] : [];
-
-        // 4. Secondary Featured Stories (Top 3)
-        $secondaryFeatured = Article::published()
-            ->whereNotIn('id', $excludeIds)
-            ->where('is_featured', true)
-            ->with(['category', 'author'])
-            ->latest('published_at')
-            ->take(3)
-            ->get();
-
-        $excludeIds = array_merge($excludeIds, $secondaryFeatured->pluck('id')->all());
-
-        // 5. Latest News Wire
-        $latestNews = Article::published()
-            ->whereNotIn('id', $excludeIds)
-            ->with(['category', 'author'])
-            ->latest('published_at')
-            ->take(8)
-            ->get();
-
-        // 6. Most Read Stories (Trending / Top Views)
-        $mostRead = Article::published()
-            ->with(['category', 'author'])
-            ->orderByDesc('view_count')
-            ->take(6)
-            ->get();
-
-        // 7. Category specific sections
-        $categoryArticles = [];
-        $keyCategories = [
-            'kenya', 'politics', 'counties', 'business', 'world',
-            'crime', 'education', 'technology', 'sports', 'entertainment',
-            'lifestyle', 'opinion', 'video',
-        ];
-
-        foreach ($keyCategories as $slug) {
-            $cat = Category::where('slug', $slug)->first();
-            if ($cat) {
-                $categoryArticles[$slug] = [
-                    'category' => $cat,
-                    'articles' => Article::published()
-                        ->forCategory($cat->id)
-                        ->with(['category', 'author'])
-                        ->latest('published_at')
-                        ->take(4)
-                        ->get(),
-                ];
+            if (! $leadStory) {
+                $leadStory = Article::select(self::LISTING_COLUMNS)
+                    ->published()
+                    ->where('is_featured', true)
+                    ->with(['category:id,name,slug', 'author:id,name,username,avatar'])
+                    ->latest('published_at')
+                    ->first();
             }
-        }
 
-        // 8. Active Live Blog
-        $liveBlog = LiveBlog::active()
-            ->with(['updates' => fn ($q) => $q->with('author')->take(5)])
-            ->latest('started_at')
-            ->first();
+            $excludeIds = $leadStory ? [$leadStory->id] : [];
 
-        // 9. Trending Tags
-        $trendingTags = Tag::withCount('articles')
-            ->orderByDesc('articles_count')
-            ->take(8)
-            ->get();
+            // 3. Secondary Featured Stories (Top 3)
+            $secondaryFeatured = Article::select(self::LISTING_COLUMNS)
+                ->published()
+                ->whereNotIn('id', $excludeIds)
+                ->where('is_featured', true)
+                ->with(['category:id,name,slug', 'author:id,name,username,avatar'])
+                ->latest('published_at')
+                ->take(3)
+                ->get();
 
-        // 10. Advertisements
-        $headerAd = AdPlacement::where('slug', 'header-leaderboard')->first()?->activeAdvertisement();
-        $sidebarAd = AdPlacement::where('slug', 'sidebar-mrec')->first()?->activeAdvertisement();
-        $contentAd = AdPlacement::where('slug', 'content-billboard')->first()?->activeAdvertisement();
+            $excludeIds = array_merge($excludeIds, $secondaryFeatured->pluck('id')->all());
 
-        return view('home', compact(
-            'breakingNews',
-            'navCategories',
-            'leadStory',
-            'secondaryFeatured',
-            'latestNews',
-            'mostRead',
-            'categoryArticles',
-            'liveBlog',
-            'trendingTags',
-            'headerAd',
-            'sidebarAd',
-            'contentAd'
-        ));
+            // 4. Latest News Wire
+            $latestNews = Article::select(self::LISTING_COLUMNS)
+                ->published()
+                ->whereNotIn('id', $excludeIds)
+                ->with(['category:id,name,slug', 'author:id,name,username,avatar'])
+                ->latest('published_at')
+                ->take(8)
+                ->get();
+
+            // 5. Most Read Stories (Trending / Top Views)
+            $mostRead = Article::select(self::LISTING_COLUMNS)
+                ->published()
+                ->with(['category:id,name,slug', 'author:id,name,username,avatar'])
+                ->orderByDesc('view_count')
+                ->take(6)
+                ->get();
+
+            // 6. Category-specific sections (batch category lookup in 1 query)
+            $keyCategories = [
+                'kenya', 'politics', 'counties', 'business', 'world',
+                'crime', 'education', 'technology', 'sports', 'entertainment',
+                'lifestyle', 'opinion', 'video',
+            ];
+
+            $categoriesBySlug = Category::whereIn('slug', $keyCategories)->get()->keyBy('slug');
+            $categoryArticles = [];
+
+            foreach ($keyCategories as $slug) {
+                $cat = $categoriesBySlug->get($slug);
+                if ($cat) {
+                    $categoryArticles[$slug] = [
+                        'category' => $cat,
+                        'articles' => Article::select(self::LISTING_COLUMNS)
+                            ->published()
+                            ->forCategory($cat->id)
+                            ->with(['category:id,name,slug', 'author:id,name,username,avatar'])
+                            ->latest('published_at')
+                            ->take(4)
+                            ->get(),
+                    ];
+                }
+            }
+
+            // 7. Active Live Blog
+            $liveBlog = LiveBlog::active()
+                ->with(['updates' => fn ($q) => $q->with('author:id,name,username,avatar')->take(5)])
+                ->latest('started_at')
+                ->first();
+
+            // 8. Trending Tags
+            $trendingTags = Tag::withCount('articles')
+                ->orderByDesc('articles_count')
+                ->take(8)
+                ->get();
+
+            // 9. Advertisements (single batched placement lookup)
+            $adPlacements = AdPlacement::whereIn('slug', [
+                'header-leaderboard',
+                'sidebar-mrec',
+                'content-billboard',
+            ])->get()->keyBy('slug');
+
+            $headerAd = $adPlacements->get('header-leaderboard')?->activeAdvertisement();
+            $sidebarAd = $adPlacements->get('sidebar-mrec')?->activeAdvertisement();
+            $contentAd = $adPlacements->get('content-billboard')?->activeAdvertisement();
+
+            return compact(
+                'breakingNews',
+                'leadStory',
+                'secondaryFeatured',
+                'latestNews',
+                'mostRead',
+                'categoryArticles',
+                'liveBlog',
+                'trendingTags',
+                'headerAd',
+                'sidebarAd',
+                'contentAd'
+            );
+        });
+
+        return view('home', array_merge($homeData, [
+            'navCategories' => $navCategories,
+        ]));
     }
 }

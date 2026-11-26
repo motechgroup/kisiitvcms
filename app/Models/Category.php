@@ -3,11 +3,13 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\Cache;
 
 class Category extends Model
 {
@@ -33,6 +35,34 @@ class Category extends Model
             'is_active' => 'boolean',
             'show_in_menu' => 'boolean',
         ];
+    }
+
+    protected static function booted(): void
+    {
+        static::saved(function (): void {
+            Cache::forget('nav_categories_menu');
+            Cache::forget('homepage_data_v1');
+        });
+
+        static::deleted(function (): void {
+            Cache::forget('nav_categories_menu');
+            Cache::forget('homepage_data_v1');
+        });
+    }
+
+    /**
+     * Cached navigation categories with active children.
+     *
+     * @return Collection<int, self>
+     */
+    public static function cachedNavCategories(): Collection
+    {
+        return Cache::remember('nav_categories_menu', 600, function (): Collection {
+            return self::roots()
+                ->menu()
+                ->with(['children' => fn ($q) => $q->menu()])
+                ->get();
+        });
     }
 
     public function getRouteKeyName(): string
