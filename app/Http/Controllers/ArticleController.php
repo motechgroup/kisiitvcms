@@ -46,7 +46,7 @@ class ArticleController extends Controller
         $userAgent = $request->userAgent();
         $referer = $request->header('referer');
 
-        defer(function () use ($articleId, $ipAddress, $userAgent, $referer): void {
+        app()->terminating(function () use ($articleId, $ipAddress, $userAgent, $referer): void {
             Article::whereKey($articleId)->increment('view_count');
             ArticleView::create([
                 'article_id' => $articleId,

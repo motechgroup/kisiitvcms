@@ -19,13 +19,17 @@ class SiteSetting extends Model
     ];
 
     /**
-     * Load all settings once per request from a single memoized cache entry.
+     * Load all settings once per request from a single cached query.
      *
      * @return array<string, mixed>
      */
     protected static function allCached(): array
     {
-        return Cache::memo()->remember('site_settings_all', 3600, function (): array {
+        if (app()->bound('site_settings_memo')) {
+            return app('site_settings_memo');
+        }
+
+        $settings = Cache::remember('site_settings_all', 3600, function (): array {
             $result = [];
 
             foreach (self::all(['key', 'value', 'type']) as $setting) {
@@ -39,14 +43,19 @@ class SiteSetting extends Model
 
             return $result;
         });
+
+        app()->instance('site_settings_memo', $settings);
+
+        return $settings;
     }
 
     /**
-     * Clear both memoized and persistent settings caches.
+     * Clear both in-request and persistent settings caches.
      */
     public static function clearCache(): void
     {
-        Cache::memo()->forget('site_settings_all');
+        app()->forgetInstance('site_settings_memo');
+        Cache::forget('site_settings_all');
     }
 
     /**

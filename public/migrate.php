@@ -246,10 +246,17 @@ try {
 }
 
 try {
-    Artisan::call('optimize');
+    Artisan::call('config:cache');
+    Artisan::call('view:cache');
     $output['views'] = Artisan::output();
 } catch (Throwable $e) {
-    $output['views'] = 'Optimize cache notice: '.$e->getMessage();
+    $output['views'] = 'Cache rebuild notice: '.$e->getMessage();
+}
+
+try {
+    Artisan::call('route:cache');
+} catch (Throwable $e) {
+    // Route caching is skipped safely if any closure routes are present.
 }
 
 // 6. Test-run /admin route simulation as Super Admin to capture any real exception
