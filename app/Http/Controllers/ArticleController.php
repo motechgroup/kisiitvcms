@@ -67,7 +67,7 @@ class ArticleController extends Controller
             ->published()
             ->where('category_id', $article->category_id)
             ->where('id', '!=', $article->id)
-            ->with(['category:id,name,slug', 'author:id,name,username,avatar'])
+            ->with(['category:id,name,slug', 'author:id,name,username,avatar_path'])
             ->latest('published_at')
             ->take(4)
             ->get();
@@ -76,7 +76,7 @@ class ArticleController extends Controller
         $mostRead = Cache::remember('sidebar_most_read', 180, function () {
             return Article::select(self::LISTING_COLUMNS)
                 ->published()
-                ->with(['category:id,name,slug', 'author:id,name,username,avatar'])
+                ->with(['category:id,name,slug', 'author:id,name,username,avatar_path'])
                 ->orderByDesc('view_count')
                 ->take(6)
                 ->get();
@@ -86,7 +86,7 @@ class ArticleController extends Controller
         $latestWire = Cache::remember('sidebar_latest_wire', 120, function () {
             return Article::select(self::LISTING_COLUMNS)
                 ->published()
-                ->with(['category:id,name,slug', 'author:id,name,username,avatar'])
+                ->with(['category:id,name,slug', 'author:id,name,username,avatar_path'])
                 ->latest('published_at')
                 ->take(6)
                 ->get();

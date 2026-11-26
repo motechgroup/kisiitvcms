@@ -43,7 +43,7 @@ class PublicCategoryController extends Controller
         $articles = Article::select(self::LISTING_COLUMNS)
             ->published()
             ->whereIn('category_id', $categoryIds)
-            ->with(['category:id,name,slug', 'author:id,name,username,avatar'])
+            ->with(['category:id,name,slug', 'author:id,name,username,avatar_path'])
             ->latest('published_at')
             ->paginate(12);
 
@@ -56,7 +56,7 @@ class PublicCategoryController extends Controller
         $mostRead = Cache::remember('sidebar_most_read', 180, function () {
             return Article::select(self::LISTING_COLUMNS)
                 ->published()
-                ->with(['category:id,name,slug', 'author:id,name,username,avatar'])
+                ->with(['category:id,name,slug', 'author:id,name,username,avatar_path'])
                 ->orderByDesc('view_count')
                 ->take(6)
                 ->get();

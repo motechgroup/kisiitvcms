@@ -2,6 +2,8 @@
 
 namespace Tests\Feature;
 
+use App\Models\Article;
+use App\Models\Category;
 use Database\Seeders\CategorySeeder;
 use Database\Seeders\NewsContentSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -21,8 +23,18 @@ class ExampleTest extends TestCase
             NewsContentSeeder::class,
         ]);
 
-        $response = $this->get('/');
+        $this->withoutExceptionHandling();
 
-        $response->assertStatus(200);
+        $this->get('/')->assertStatus(200);
+
+        $article = Article::published()->first();
+        if ($article) {
+            $this->get(route('articles.show', $article))->assertStatus(200);
+        }
+
+        $category = Category::where('is_active', true)->first();
+        if ($category) {
+            $this->get(route('categories.show', $category))->assertStatus(200);
+        }
     }
 }

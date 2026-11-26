@@ -54,14 +54,14 @@ class HomeController extends Controller
             $leadStory = $leadSection?->articles()
                 ->select(array_map(fn (string $col) => "articles.{$col}", self::LISTING_COLUMNS))
                 ->published()
-                ->with(['category:id,name,slug', 'author:id,name,username,avatar'])
+                ->with(['category:id,name,slug', 'author:id,name,username,avatar_path'])
                 ->first();
 
             if (! $leadStory) {
                 $leadStory = Article::select(self::LISTING_COLUMNS)
                     ->published()
                     ->where('is_featured', true)
-                    ->with(['category:id,name,slug', 'author:id,name,username,avatar'])
+                    ->with(['category:id,name,slug', 'author:id,name,username,avatar_path'])
                     ->latest('published_at')
                     ->first();
             }
@@ -73,7 +73,7 @@ class HomeController extends Controller
                 ->published()
                 ->whereNotIn('id', $excludeIds)
                 ->where('is_featured', true)
-                ->with(['category:id,name,slug', 'author:id,name,username,avatar'])
+                ->with(['category:id,name,slug', 'author:id,name,username,avatar_path'])
                 ->latest('published_at')
                 ->take(3)
                 ->get();
@@ -84,7 +84,7 @@ class HomeController extends Controller
             $latestNews = Article::select(self::LISTING_COLUMNS)
                 ->published()
                 ->whereNotIn('id', $excludeIds)
-                ->with(['category:id,name,slug', 'author:id,name,username,avatar'])
+                ->with(['category:id,name,slug', 'author:id,name,username,avatar_path'])
                 ->latest('published_at')
                 ->take(8)
                 ->get();
@@ -92,7 +92,7 @@ class HomeController extends Controller
             // 5. Most Read Stories (Trending / Top Views)
             $mostRead = Article::select(self::LISTING_COLUMNS)
                 ->published()
-                ->with(['category:id,name,slug', 'author:id,name,username,avatar'])
+                ->with(['category:id,name,slug', 'author:id,name,username,avatar_path'])
                 ->orderByDesc('view_count')
                 ->take(6)
                 ->get();
@@ -115,7 +115,7 @@ class HomeController extends Controller
                         'articles' => Article::select(self::LISTING_COLUMNS)
                             ->published()
                             ->forCategory($cat->id)
-                            ->with(['category:id,name,slug', 'author:id,name,username,avatar'])
+                            ->with(['category:id,name,slug', 'author:id,name,username,avatar_path'])
                             ->latest('published_at')
                             ->take(4)
                             ->get(),
@@ -125,7 +125,7 @@ class HomeController extends Controller
 
             // 7. Active Live Blog
             $liveBlog = LiveBlog::active()
-                ->with(['updates' => fn ($q) => $q->with('author:id,name,username,avatar')->take(5)])
+                ->with(['updates' => fn ($q) => $q->with('author:id,name,username,avatar_path')->take(5)])
                 ->latest('started_at')
                 ->first();
 
