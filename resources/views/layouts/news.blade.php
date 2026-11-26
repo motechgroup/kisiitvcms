@@ -173,7 +173,11 @@
         }
     </style>
 </head>
-<body class="min-h-full font-sans-body antialiased text-slate-900 bg-white flex flex-col justify-between selection:bg-[#d9252a] selection:text-white" x-data="{ mobileMenuOpen: false, searchOpen: false, globalDonateOpen: false, globalAmount: '500', globalGateway: 'mpesa' }" @open-donate-modal.window="globalDonateOpen = true; if ($event.detail && $event.detail.amount) globalAmount = $event.detail.amount; if ($event.detail && $event.detail.gateway) globalGateway = $event.detail.gateway;">
+@php
+    $globalActiveGateways = \App\Models\PaymentGateway::where('is_active', true)->orderBy('display_order')->get();
+    $globalDefaultGateway = $globalActiveGateways->first()?->code ?? 'paystack';
+@endphp
+<body class="min-h-full font-sans-body antialiased text-slate-900 bg-white flex flex-col justify-between selection:bg-[#d9252a] selection:text-white" x-data="{ mobileMenuOpen: false, searchOpen: false, globalDonateOpen: false, globalAmount: '500', globalGateway: '{{ $globalDefaultGateway }}' }" @open-donate-modal.window="globalDonateOpen = true; if ($event.detail && $event.detail.amount) globalAmount = $event.detail.amount; if ($event.detail && $event.detail.gateway) globalGateway = $event.detail.gateway;">
 
     <!-- 1. TOP UTILITY / DESK BAR -->
     <div class="bg-[#0b162c] text-white text-xs border-b border-slate-800">
@@ -759,9 +763,6 @@
     </footer>
 
     <!-- Global Donation / Support Kisii TV Modal -->
-    @php
-        $globalActiveGateways = \App\Models\PaymentGateway::where('is_active', true)->orderBy('display_order')->get();
-    @endphp
     @if((bool) \App\Models\SiteSetting::get('live_donations_enabled', true) && $globalActiveGateways->isNotEmpty())
         <div x-show="globalDonateOpen"
             x-cloak

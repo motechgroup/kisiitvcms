@@ -11,7 +11,14 @@
     'cancelAction' => null,
 ])
 
-<form method="POST" action="{{ route('donations.store') }}" class="space-y-5 text-left" x-data="{ showOptional: false }">
+@php
+    $activeGatewayCodes = $gateways->pluck('code')->values()->all();
+    $firstGatewayCode = $activeGatewayCodes[0] ?? 'paystack';
+@endphp
+
+<form method="POST" action="{{ route('donations.store') }}" class="space-y-5 text-left"
+    x-data="{ showOptional: false, availableGateways: @js($activeGatewayCodes) }"
+    x-init="if (!availableGateways.includes({{ $gatewayModel }})) { {{ $gatewayModel }} = '{{ $firstGatewayCode }}'; }">
     @csrf
 
     @if($liveStreamId)
@@ -49,10 +56,10 @@
 
     <!-- 2. Payment Method -->
     <div>
-        <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-2.5">
+        <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-2.5 {{ $gateways->count() === 1 ? 'text-center' : '' }}">
             2. Choose Payment Method
         </label>
-        <div class="grid grid-cols-2 gap-3">
+        <div class="grid gap-3 {{ $gateways->count() === 1 ? 'grid-cols-1 max-w-[260px] mx-auto' : 'grid-cols-2' }}">
             @foreach($gateways as $gw)
                 @php
                     $methodTagline = match ($gw->code) {
