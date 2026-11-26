@@ -14,6 +14,7 @@ use Database\Seeders\PaymentGatewaySeeder;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Database\Seeders\SiteSettingSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use PHPUnit\Framework\Attributes\TestWith;
 use Tests\TestCase;
@@ -279,6 +280,40 @@ HTML;
         // Toggle active status off
         $this->actingAs($this->superAdmin)->patch(route('admin.payment-gateways.toggle-active', $mpesa));
         $this->assertFalse($mpesa->fresh()->is_active);
+    }
+
+    public function test_paystack_env_credentials_are_automatically_synced_encrypted_and_shown_in_admin_dashboard(): void
+    {
+        PaymentGateway::ensureDefaultsExist();
+
+        $paystack = PaymentGateway::where('code', 'paystack')->firstOrFail();
+        $paystack->update([
+            'public_key' => null,
+            'secret_key' => null,
+            'passkey_or_webhook_secret' => null,
+        ]);
+
+        config([
+            'services.paystack.public_key' => 'pk_test_demo_public_123',
+            'services.paystack.secret_key' => 'sk_test_demo_secret_456',
+            'services.paystack.restricted_key' => 'rk_test_demo_restricted_789',
+        ]);
+
+        $response = $this->actingAs($this->superAdmin)->get(route('admin.payment-gateways.index'));
+        $response->assertStatus(200);
+        $response->assertSee('pk_test_demo_public_123');
+        $response->assertSee('sk_test_demo_secret_456');
+        $response->assertSee('rk_test_demo_restricted_789');
+
+        $paystack->refresh();
+        $this->assertSame('pk_test_demo_public_123', $paystack->public_key);
+        $this->assertSame('sk_test_demo_secret_456', $paystack->secret_key);
+        $this->assertSame('rk_test_demo_restricted_789', $paystack->passkey_or_webhook_secret);
+
+        // Verify secret_key and passkey_or_webhook_secret are encrypted at rest in raw DB columns
+        $rawRow = DB::table('payment_gateways')->where('code', 'paystack')->first();
+        $this->assertNotSame('sk_test_demo_secret_456', $rawRow->secret_key);
+        $this->assertNotSame('rk_test_demo_restricted_789', $rawRow->passkey_or_webhook_secret);
     }
 
     #[TestWith(['mpesa'])]

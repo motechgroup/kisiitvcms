@@ -188,5 +188,46 @@ class PaymentGateway extends Model
                 $gateway
             );
         }
+
+        self::syncPaystackEnvCredentials();
+    }
+
+    /**
+     * Backfill empty Paystack credentials from config/.env and store them encrypted.
+     */
+    public static function syncPaystackEnvCredentials(): void
+    {
+        $paystack = self::where('code', 'paystack')->first();
+
+        if (! $paystack) {
+            return;
+        }
+
+        $publicKey = config('services.paystack.public_key') ?: env('PAYSTACK_PUBLIC_KEY');
+        $secretKey = config('services.paystack.secret_key') ?: env('PAYSTACK_SECRET_KEY');
+        $restrictedKey = config('services.paystack.restricted_key') ?: env('PAYSTACK_RESTRICTED_KEY');
+        $callbackUrl = config('services.paystack.callback_url') ?: env('PAYSTACK_CALLBACK_URL', 'https://kisiitv.co.ke/donations/callback/paystack');
+
+        $updates = [];
+
+        if (blank($paystack->public_key) && filled($publicKey)) {
+            $updates['public_key'] = $publicKey;
+        }
+
+        if (blank($paystack->secret_key) && filled($secretKey)) {
+            $updates['secret_key'] = $secretKey;
+        }
+
+        if (blank($paystack->passkey_or_webhook_secret) && filled($restrictedKey)) {
+            $updates['passkey_or_webhook_secret'] = $restrictedKey;
+        }
+
+        if (blank($paystack->callback_url) && filled($callbackUrl)) {
+            $updates['callback_url'] = $callbackUrl;
+        }
+
+        if ($updates !== []) {
+            $paystack->update($updates);
+        }
     }
 }
