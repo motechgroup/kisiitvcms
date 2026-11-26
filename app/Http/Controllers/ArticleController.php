@@ -7,7 +7,6 @@ use App\Models\Article;
 use App\Models\ArticleView;
 use App\Models\Category;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\View\View;
 
 class ArticleController extends Controller
@@ -72,30 +71,26 @@ class ArticleController extends Controller
             ->take(4)
             ->get();
 
-        // Cached Trending / Most read stories for sidebar
-        $mostRead = Cache::remember('sidebar_most_read', 180, function () {
-            return Article::select(self::LISTING_COLUMNS)
-                ->published()
-                ->with(['category:id,name,slug', 'author:id,name,username,avatar_path'])
-                ->orderByDesc('view_count')
-                ->take(6)
-                ->get();
-        })->where('id', '!=', $article->id)->take(5)->values();
+        // Trending / Most read stories for sidebar
+        $mostRead = Article::select(self::LISTING_COLUMNS)
+            ->published()
+            ->where('id', '!=', $article->id)
+            ->with(['category:id,name,slug', 'author:id,name,username,avatar_path'])
+            ->orderByDesc('view_count')
+            ->take(5)
+            ->get();
 
-        // Cached Latest wire items
-        $latestWire = Cache::remember('sidebar_latest_wire', 120, function () {
-            return Article::select(self::LISTING_COLUMNS)
-                ->published()
-                ->with(['category:id,name,slug', 'author:id,name,username,avatar_path'])
-                ->latest('published_at')
-                ->take(6)
-                ->get();
-        })->where('id', '!=', $article->id)->take(5)->values();
+        // Latest wire items
+        $latestWire = Article::select(self::LISTING_COLUMNS)
+            ->published()
+            ->where('id', '!=', $article->id)
+            ->with(['category:id,name,slug', 'author:id,name,username,avatar_path'])
+            ->latest('published_at')
+            ->take(5)
+            ->get();
 
         // Sidebar Ad
-        $sidebarAd = Cache::remember('ad_sidebar_mrec', 180, function () {
-            return AdPlacement::where('slug', 'sidebar-mrec')->first()?->activeAdvertisement();
-        });
+        $sidebarAd = AdPlacement::where('slug', 'sidebar-mrec')->first()?->activeAdvertisement();
 
         return view('articles.show', compact(
             'article',

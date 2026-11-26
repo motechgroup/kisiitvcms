@@ -94,23 +94,28 @@ class PaymentGateway extends Model
 
     protected static function booted(): void
     {
-        static::saved(fn () => Cache::forget('active_public_payment_gateways'));
-        static::deleted(fn () => Cache::forget('active_public_payment_gateways'));
+        static::saved(fn () => Cache::forget('active_public_payment_gateways_v2'));
+        static::deleted(fn () => Cache::forget('active_public_payment_gateways_v2'));
     }
 
     /**
      * Cached public-safe list of active payment gateways for global layout rendering
-     * without fetching or decrypting API secrets on every page load.
+     * without fetching or decrypting API secrets on every page load (stored as plain
+     * arrays for compatibility with Laravel's serializable_classes = false setting).
      *
      * @return Collection<int, self>
      */
     public static function cachedActivePublic(): Collection
     {
-        return Cache::remember('active_public_payment_gateways', 300, function (): Collection {
+        $rows = Cache::remember('active_public_payment_gateways_v2', 300, function (): array {
             return self::where('is_active', true)
                 ->orderBy('display_order')
-                ->get(['id', 'name', 'code', 'provider_label', 'currency', 'display_order']);
+                ->get(['id', 'name', 'code', 'provider_label', 'currency', 'display_order'])
+                ->map(fn (self $gateway): array => $gateway->getAttributes())
+                ->all();
         });
+
+        return self::hydrate($rows);
     }
 
     public function donations(): HasMany

@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use App\Models\AdPlacement;
 use App\Models\Article;
 use App\Models\Category;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\View\View;
 
 class PublicCategoryController extends Controller
@@ -52,20 +51,16 @@ class PublicCategoryController extends Controller
         // Cached Navigation Categories
         $navCategories = Category::cachedNavCategories();
 
-        // Cached Trending stories
-        $mostRead = Cache::remember('sidebar_most_read', 180, function () {
-            return Article::select(self::LISTING_COLUMNS)
-                ->published()
-                ->with(['category:id,name,slug', 'author:id,name,username,avatar_path'])
-                ->orderByDesc('view_count')
-                ->take(6)
-                ->get();
-        })->take(5)->values();
+        // Trending stories
+        $mostRead = Article::select(self::LISTING_COLUMNS)
+            ->published()
+            ->with(['category:id,name,slug', 'author:id,name,username,avatar_path'])
+            ->orderByDesc('view_count')
+            ->take(5)
+            ->get();
 
-        // Cached Sidebar Ad
-        $sidebarAd = Cache::remember('ad_sidebar_mrec', 180, function () {
-            return AdPlacement::where('slug', 'sidebar-mrec')->first()?->activeAdvertisement();
-        });
+        // Sidebar Ad
+        $sidebarAd = AdPlacement::where('slug', 'sidebar-mrec')->first()?->activeAdvertisement();
 
         return view('categories.show', compact(
             'category',
