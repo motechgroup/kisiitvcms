@@ -180,17 +180,11 @@
     <section class="my-6 bg-gradient-to-r from-[#0a1c3d] via-[#102a5c] to-[#0a1c3d] text-white p-5 sm:p-6 rounded-xl border-l-4 border-emerald-500 shadow-lg">
         <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-5">
             <div class="space-y-1.5 max-w-2xl">
-                <div class="flex items-center space-x-2">
-                    <span class="bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[10px] font-black uppercase tracking-widest px-2.5 py-0.5 rounded">
-                        Support Fearless Journalism
-                    </span>
-                    <span class="text-xs text-slate-300">• Powered by Kisii TV Readers</span>
-                </div>
                 <h3 class="text-lg sm:text-xl font-black font-headline text-white leading-tight">
                     Help Kisii TV Keep In-Depth County Investigations &amp; Live News Free For All
                 </h3>
                 <p class="text-xs sm:text-sm text-slate-300 leading-relaxed">
-                    We rely on reader support to send reporters into the field, cover county barazas, and broadcast breaking news live without paywalls. Support us via M-Pesa, Card, or PayPal.
+                    We rely on reader support to send reporters into the field, cover county barazas, and broadcast breaking news live without paywalls.
                 </p>
             </div>
 
@@ -319,9 +313,8 @@
 
                 <!-- Support Kisii TV Patron Sidebar Card -->
                 <div class="bg-gradient-to-br from-slate-900 to-[#0a1c3d] border-2 border-emerald-500/40 rounded-xl p-4 text-white shadow-md space-y-3">
-                    <div class="flex items-center justify-between">
+                    <div>
                         <span class="text-[10px] font-black uppercase tracking-widest text-emerald-400">Support Our Desk</span>
-                        <span class="text-[9px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300">M-Pesa &amp; Card</span>
                     </div>
                     <div>
                         <h4 class="text-sm font-bold font-headline text-white">Stand With Independent Journalism</h4>
