@@ -775,31 +775,31 @@
             x-transition:leave-end="opacity-0">
 
             <div @click.outside="globalDonateOpen = false"
-                class="bg-slate-900 border-2 border-emerald-500/40 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden my-8">
+                class="bg-slate-900 border border-slate-700/80 rounded-2xl w-full max-w-md shadow-2xl shadow-black/60 overflow-hidden my-8">
 
                 <!-- Modal Header -->
-                <div class="bg-[#0a1c3d] px-6 py-4 border-b border-slate-800 flex items-start justify-between gap-4">
-                    <div class="flex items-center space-x-2.5">
-                        <div class="w-9 h-9 rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 shrink-0">
-                            <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+                <div class="bg-slate-950/90 px-6 py-4 border-b border-slate-800/80 flex items-center justify-between gap-4">
+                    <div class="flex items-center gap-3">
+                        <div class="w-9 h-9 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0">
+                            <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
                         </div>
                         <div>
-                            <span class="inline-block bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded">
-                                Independent Journalism Fund
-                            </span>
-                            <h2 class="text-base sm:text-lg font-black font-headline text-white leading-tight mt-0.5">
+                            <h2 class="text-base font-black font-headline text-white leading-tight">
                                 Support Kisii TV Newsroom
                             </h2>
+                            <p class="text-[11px] text-slate-400 mt-0.5">
+                                Fast &amp; secure contribution
+                            </p>
                         </div>
                     </div>
                     <button type="button" @click="globalDonateOpen = false"
-                        class="text-slate-400 hover:text-white text-2xl font-bold leading-none p-1 cursor-pointer">
+                        class="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-800 text-xl font-bold leading-none transition cursor-pointer">
                         &times;
                     </button>
                 </div>
 
                 <!-- Modal Body -->
-                <div class="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
+                <div class="p-6 max-h-[82vh] overflow-y-auto">
                     <x-donation-form
                         :gateways="$globalActiveGateways"
                         amount-model="globalAmount"

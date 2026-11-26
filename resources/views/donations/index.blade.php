@@ -30,16 +30,12 @@
         @endif
 
         <!-- Portal Header -->
-        <div class="text-center max-w-3xl mx-auto mb-10 sm:mb-12">
-            <div class="inline-flex items-center space-x-2 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-black uppercase tracking-widest px-3.5 py-1 rounded-full mb-3 shadow-sm">
-                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                <span>Kisii TV Independent Journalism Fund</span>
-            </div>
+        <div class="text-center max-w-2xl mx-auto mb-10 sm:mb-12">
             <h1 class="text-3xl sm:text-4xl lg:text-5xl font-black font-headline tracking-tight text-white leading-tight">
                 Support <span class="text-[#d9252a]">Kisii TV</span> Newsroom
             </h1>
-            <p class="mt-4 text-sm sm:text-base text-slate-300 leading-relaxed max-w-2xl mx-auto">
-                Your contribution directly funds fearless investigative reports, live digital broadcast trucks, and community-centered stories across Kisii, Nyamira, and the greater Kenyan nation.
+            <p class="mt-3 text-sm sm:text-base text-slate-400 leading-relaxed">
+                Your contribution directly funds fearless investigative reports, live broadcasts, and community-centered stories across Kisii, Nyamira, and Kenya.
             </p>
         </div>
 
@@ -50,16 +46,18 @@
             }">
 
             <!-- Left Form Column (7 Cols) -->
-            <div class="lg:col-span-7 bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden">
-                <div class="bg-[#0a1c3d] px-6 py-4 border-b border-slate-800 flex items-center justify-between">
-                    <div class="flex items-center space-x-2">
-                        <svg class="w-5 h-5 text-emerald-400 fill-current" viewBox="0 0 24 24">
-                            <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
-                        </svg>
-                        <span class="font-bold text-sm uppercase tracking-wider text-white">Make Your Contribution</span>
+            <div class="lg:col-span-7 bg-slate-900 border border-slate-800/90 rounded-2xl shadow-2xl overflow-hidden">
+                <div class="bg-slate-950/90 px-6 py-4 border-b border-slate-800/80 flex items-center justify-between">
+                    <div class="flex items-center gap-2.5">
+                        <div class="w-8 h-8 rounded-lg bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+                            <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24">
+                                <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+                            </svg>
+                        </div>
+                        <span class="font-bold text-sm tracking-wide text-white">Make Your Contribution</span>
                     </div>
-                    <span class="text-[10px] uppercase font-bold text-slate-400 bg-slate-950 px-2 py-0.5 rounded border border-slate-800">
-                        100% Direct Impact
+                    <span class="text-[11px] font-medium text-emerald-400">
+                        Secure Checkout
                     </span>
                 </div>
 
