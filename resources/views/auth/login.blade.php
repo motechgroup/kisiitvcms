@@ -14,7 +14,7 @@
         <label for="email" class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">Email Address</label>
         <input id="email" type="email" name="email" value="{{ old('email') }}" required autofocus autocomplete="username"
             class="w-full px-3 py-2.5 text-sm bg-white border border-slate-300 focus:outline-none focus:border-[#d9252a] focus:ring-1 focus:ring-[#d9252a] transition"
-            placeholder="reporter@kisiitv.com">
+            placeholder="you@example.com">
     </div>
 
     <div>
@@ -48,15 +48,4 @@
         </p>
     </div>
 </form>
-
-<div class="mt-6 pt-4 border-t border-dashed border-slate-200">
-    <div class="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-2">Pre-seeded Test Credentials:</div>
-    <div class="bg-slate-50 p-2.5 text-xs text-slate-600 space-y-1 font-mono">
-        <div><span class="text-slate-900 font-semibold">Super Admin:</span> superadmin@kisiitv.com</div>
-        <div><span class="text-slate-900 font-semibold">Editor-in-Chief:</span> editor@kisiitv.com</div>
-        <div><span class="text-slate-900 font-semibold">Politics Editor:</span> politics.editor@kisiitv.com</div>
-        <div><span class="text-slate-900 font-semibold">Reporter:</span> reporter@kisiitv.com</div>
-        <div class="text-slate-400">Password for all: <span class="text-slate-700">Password123!</span></div>
-    </div>
-</div>
 @endsection
