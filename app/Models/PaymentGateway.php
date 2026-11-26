@@ -2,10 +2,13 @@
 
 namespace App\Models;
 
+use Illuminate\Contracts\Encryption\DecryptException;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\Crypt;
 
 class PaymentGateway extends Model
 {
@@ -41,6 +44,50 @@ class PaymentGateway extends Model
             'is_test_mode' => 'boolean',
             'display_order' => 'integer',
         ];
+    }
+
+    /**
+     * Encrypt secret_key at rest and safely decrypt on read.
+     */
+    protected function secretKey(): Attribute
+    {
+        return Attribute::make(
+            get: fn (?string $value) => self::decryptCredential($value),
+            set: fn (?string $value) => self::encryptCredential($value),
+        );
+    }
+
+    /**
+     * Encrypt passkey_or_webhook_secret at rest and safely decrypt on read.
+     */
+    protected function passkeyOrWebhookSecret(): Attribute
+    {
+        return Attribute::make(
+            get: fn (?string $value) => self::decryptCredential($value),
+            set: fn (?string $value) => self::encryptCredential($value),
+        );
+    }
+
+    protected static function encryptCredential(?string $value): ?string
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        return Crypt::encryptString($value);
+    }
+
+    protected static function decryptCredential(?string $value): ?string
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        try {
+            return Crypt::decryptString($value);
+        } catch (DecryptException) {
+            return $value;
+        }
     }
 
     public function donations(): HasMany
@@ -96,8 +143,12 @@ class PaymentGateway extends Model
                 'provider_label' => 'Paystack (Card, Mobile Money & Bank)',
                 'description' => 'Accept Visa, Mastercard, Apple Pay, and M-Pesa payments seamlessly powered by Paystack.',
                 'is_active' => true,
-                'is_test_mode' => true,
+                'is_test_mode' => false,
                 'currency' => 'KES',
+                'public_key' => config('services.paystack.public_key'),
+                'secret_key' => config('services.paystack.secret_key'),
+                'passkey_or_webhook_secret' => config('services.paystack.restricted_key'),
+                'callback_url' => config('services.paystack.callback_url', 'https://kisiitv.co.ke/donations/callback/paystack'),
                 'instructions' => 'Complete your contribution securely using Visa, Mastercard, or Mobile Money via Paystack Checkout.',
                 'display_order' => 2,
             ],

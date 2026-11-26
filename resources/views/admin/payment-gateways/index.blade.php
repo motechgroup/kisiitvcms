@@ -212,8 +212,9 @@
                                 </div>
                             </div>
                             <div>
-                                <label class="block font-bold uppercase text-slate-700 mb-1">
-                                    {{ $gateway->code === 'mpesa' ? 'Daraja Consumer Secret' : ($gateway->code === 'paypal' ? 'PayPal Client Secret' : 'Secret Key') }}
+                                <label class="block font-bold uppercase text-slate-700 mb-1 flex items-center justify-between">
+                                    <span>{{ $gateway->code === 'mpesa' ? 'Daraja Consumer Secret' : ($gateway->code === 'paypal' ? 'PayPal Client Secret' : 'Secret Key') }}</span>
+                                    <span class="text-[9px] font-semibold text-emerald-600 normal-case">Encrypted</span>
                                 </label>
                                 <div class="relative">
                                     <input :type="showSecret ? 'text' : 'password'" name="secret_key" value="{{ $gateway->secret_key }}"
@@ -231,8 +232,9 @@
 
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div>
-                                <label class="block font-bold uppercase text-slate-700 mb-1">
-                                    {{ $gateway->code === 'mpesa' ? 'Daraja Lipa Na M-Pesa Passkey' : 'Webhook Secret / Encryption Key (Optional)' }}
+                                <label class="block font-bold uppercase text-slate-700 mb-1 flex items-center justify-between">
+                                    <span>{{ $gateway->code === 'mpesa' ? 'Daraja Lipa Na M-Pesa Passkey' : ($gateway->code === 'paystack' ? 'Restricted API Key / Webhook Secret' : 'Webhook Secret / Encryption Key (Optional)') }}</span>
+                                    <span class="text-[9px] font-semibold text-emerald-600 normal-case">Encrypted</span>
                                 </label>
                                 <div class="relative">
                                     <input :type="showPasskey ? 'text' : 'password'" name="passkey_or_webhook_secret" value="{{ $gateway->passkey_or_webhook_secret }}"

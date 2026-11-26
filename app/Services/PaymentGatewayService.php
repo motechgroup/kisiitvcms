@@ -26,7 +26,8 @@ class PaymentGatewayService
             $amountInCents = (int) round(((float) $donation->amount) * 100);
             $email = $donation->donor_email ?: 'supporter@kisiitv.co.ke';
 
-            $callbackUrl = route('donations.callback', ['gateway' => 'paystack', 'donation' => $donation->transaction_reference]);
+            $callbackUrl = trim((string) $gateway->callback_url)
+                ?: route('donations.callback', ['gateway' => 'paystack', 'donation' => $donation->transaction_reference]);
 
             $response = Http::timeout(15)
                 ->withToken($secretKey)

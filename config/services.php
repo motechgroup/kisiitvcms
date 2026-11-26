@@ -35,4 +35,11 @@ return [
         ],
     ],
 
+    'paystack' => [
+        'public_key' => env('PAYSTACK_PUBLIC_KEY'),
+        'secret_key' => env('PAYSTACK_SECRET_KEY'),
+        'restricted_key' => env('PAYSTACK_RESTRICTED_KEY'),
+        'callback_url' => env('PAYSTACK_CALLBACK_URL', 'https://kisiitv.co.ke/donations/callback/paystack'),
+    ],
+
 ];
