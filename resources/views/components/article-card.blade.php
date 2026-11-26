@@ -170,31 +170,88 @@
         </div>
     </article>
 
+@elseif($variant === 'category-hero')
+    <!-- CATEGORY HERO: Full-bleed visual overlay on mobile, editorial split on desktop -->
+    <article class="group relative overflow-hidden rounded-xl bg-slate-950 border border-slate-200/80 shadow-sm">
+        <div class="grid grid-cols-1 md:grid-cols-12">
+            <!-- Hero Image -->
+            <a href="{{ $articleUrl }}" class="md:col-span-7 relative block aspect-[16/10] sm:aspect-[16/9] overflow-hidden bg-slate-900">
+                <img src="{{ $imageUrl }}" alt="{{ $article->title }}" loading="lazy"
+                    class="w-full h-full object-cover transition duration-500 group-hover:scale-105">
+                <div class="absolute inset-0 bg-gradient-to-t from-slate-950/95 via-slate-950/45 to-transparent md:hidden"></div>
+
+                @if($article->is_breaking)
+                    <span class="absolute top-2.5 left-2.5 bg-[#d9252a] text-white text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-xs shadow">
+                        Breaking
+                    </span>
+                @endif
+
+                <!-- Mobile Overlay Headline -->
+                <div class="absolute inset-x-0 bottom-0 p-3.5 md:hidden">
+                    <div class="flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-wider text-red-400 mb-1">
+                        <span>{{ $categoryName }}</span>
+                        <span class="text-slate-400">&bull;</span>
+                        <span class="text-slate-300 font-medium">{{ $timeAgo }}</span>
+                    </div>
+                    <h3 class="text-base sm:text-lg font-extrabold text-white leading-snug font-headline line-clamp-3">
+                        {{ $article->title }}
+                    </h3>
+                </div>
+            </a>
+
+            <!-- Desktop Narrative Panel -->
+            <div class="hidden md:flex md:col-span-5 flex-col justify-between bg-white p-5">
+                <div class="space-y-2">
+                    <div class="flex items-center gap-2 text-[11px] font-extrabold uppercase tracking-wider text-[#d9252a]">
+                        <a href="{{ $categoryUrl }}" class="hover:underline">{{ $categoryName }}</a>
+                        <span class="text-slate-300">&bull;</span>
+                        <span class="text-slate-500 font-medium">{{ $timeAgo }}</span>
+                    </div>
+                    <h3 class="text-lg lg:text-xl font-extrabold text-slate-950 group-hover:text-[#1b52bc] transition leading-snug font-headline line-clamp-3">
+                        <a href="{{ $articleUrl }}">{{ $article->title }}</a>
+                    </h3>
+                    @if($showSummary && $article->summary)
+                        <p class="text-xs sm:text-sm text-slate-600 line-clamp-3 leading-relaxed">
+                            {{ $article->summary }}
+                        </p>
+                    @endif
+                </div>
+                <div class="pt-3 mt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
+                    <span class="font-bold text-slate-800">By {{ $authorName }}</span>
+                    <span>{{ $article->reading_time_minutes ?? 3 }} min read</span>
+                </div>
+            </div>
+        </div>
+    </article>
+
 @else
-    <!-- STANDARD CARD: Vertical grid card -->
-    <article class="group flex flex-col bg-white">
+    <!-- STANDARD CARD: Compact 2-column friendly mobile grid card -->
+    <article class="group flex flex-col bg-white rounded-xl border border-slate-200/80 hover:border-[#1b52bc]/60 overflow-hidden shadow-2xs transition">
         @if($showImage)
-            <a href="{{ $articleUrl }}" class="relative w-full aspect-[16/10] overflow-hidden bg-slate-900 mb-2.5 block">
-                <img src="{{ $imageUrl }}" alt="{{ $article->title }}" class="w-full h-full object-cover group-hover:scale-105 transition">
+            <a href="{{ $articleUrl }}" class="relative w-full aspect-[16/10] overflow-hidden bg-slate-900 block">
+                <img src="{{ $imageUrl }}" alt="{{ $article->title }}" loading="lazy" class="w-full h-full object-cover group-hover:scale-105 transition duration-300">
             </a>
         @endif
 
-        <div class="space-y-1">
-            <div class="text-[10px] font-extrabold uppercase tracking-wider text-[#d9252a]">
-                <a href="{{ $categoryUrl }}" class="hover:underline">{{ $categoryName }}</a>
+        <div class="p-2.5 sm:p-3.5 flex flex-col justify-between grow space-y-1.5">
+            <div class="space-y-1">
+                <div class="text-[9px] sm:text-[10px] font-extrabold uppercase tracking-wider text-[#d9252a] truncate">
+                    <a href="{{ $categoryUrl }}" class="hover:underline">{{ $categoryName }}</a>
+                </div>
+                <h3 class="text-[13px] sm:text-sm lg:text-base font-bold text-slate-950 group-hover:text-[#1b52bc] transition leading-snug font-headline line-clamp-3 sm:line-clamp-2">
+                    <a href="{{ $articleUrl }}">
+                        {{ $article->title }}
+                    </a>
+                </h3>
+                @if($showSummary && $article->summary)
+                    <p class="hidden sm:block text-xs text-slate-600 line-clamp-2 leading-relaxed">
+                        {{ $article->summary }}
+                    </p>
+                @endif
             </div>
-            <h3 class="text-sm sm:text-base font-bold text-slate-950 group-hover:text-[#1b52bc] transition leading-snug font-headline line-clamp-2">
-                <a href="{{ $articleUrl }}">
-                    {{ $article->title }}
-                </a>
-            </h3>
-            @if($showSummary && $article->summary)
-                <p class="text-xs text-slate-600 line-clamp-2 leading-relaxed">
-                    {{ $article->summary }}
-                </p>
-            @endif
-            <div class="text-[10px] text-slate-500 pt-1">
-                {{ $timeAgo }} • By {{ $authorName }}
+            <div class="text-[10px] text-slate-400 pt-1.5 border-t border-slate-100 flex items-center justify-between gap-1 truncate">
+                <span class="truncate">{{ $timeAgo }}</span>
+                <span class="hidden sm:inline truncate">By {{ $authorName }}</span>
             </div>
         </div>
     </article>

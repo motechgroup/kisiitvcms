@@ -1,72 +1,74 @@
 @extends('layouts.news')
 
 @section('content')
-<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+<div class="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6">
 
     <!-- ========================================== -->
     <!-- SECTION 1: MASTER HERO (LEAD & FOCUS)      -->
     <!-- ========================================== -->
-    <section class="pb-8 border-b-2 border-slate-900">
-        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
-            
+    <section class="pb-6 sm:pb-8 border-b-2 border-slate-900">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 lg:gap-8">
+
             <!-- LEFT & CENTER (8 COLS): MAIN LEAD + 2 SUB-FEATURES -->
-            <div class="lg:col-span-8 flex flex-col justify-between space-y-6">
-                
+            <div class="lg:col-span-8 flex flex-col justify-between space-y-4 sm:space-y-6">
+
                 @if($leadStory)
-                    <!-- Primary Lead Story with Split Architecture -->
-                    <article class="group bg-white border border-slate-200 hover:border-[#1b52bc] transition p-4 sm:p-5 shadow-sm">
-                        <div class="grid grid-cols-1 md:grid-cols-12 gap-5 items-center">
-                            
+                    <!-- Primary Lead Story: Full-bleed Hero Card on Mobile, Split Editorial on Desktop -->
+                    <article class="group bg-white rounded-xl border border-slate-200 hover:border-[#1b52bc] overflow-hidden transition shadow-sm">
+                        <div class="grid grid-cols-1 md:grid-cols-12 items-center">
+
                             <!-- Lead Image (6 cols on tablet/desktop) -->
-                            <div class="md:col-span-6 relative aspect-[16/10] overflow-hidden bg-slate-900">
+                            <a href="{{ route('articles.show', $leadStory->slug) }}" class="md:col-span-6 relative block aspect-[16/10] md:h-full overflow-hidden bg-slate-900">
                                 <img src="{{ $leadStory->featured_image }}" alt="{{ $leadStory->title }}" class="w-full h-full object-cover group-hover:scale-105 transition duration-500">
+                                <div class="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/30 to-transparent md:hidden"></div>
+
                                 @if($leadStory->is_breaking)
-                                    <span class="absolute top-2.5 left-2.5 bg-[#d9252a] text-white text-[10px] font-black uppercase tracking-wider px-2 py-0.5 shadow-md flex items-center space-x-1.5">
+                                    <span class="absolute top-3 left-3 bg-[#d9252a] text-white text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-xs shadow-md flex items-center gap-1.5">
                                         <span class="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span>
                                         <span>Breaking Story</span>
                                     </span>
                                 @endif
                                 @if($leadStory->article_type === 'video' || $leadStory->video_url)
-                                    <div class="absolute bottom-2.5 right-2.5 bg-black/80 text-white p-2 rounded-full flex items-center justify-center">
+                                    <div class="absolute bottom-3 right-3 bg-black/80 text-white p-2 rounded-full flex items-center justify-center">
                                         <svg class="w-4 h-4 fill-current text-white" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
                                     </div>
                                 @endif
-                            </div>
+
+                                <!-- Mobile Overlay Title -->
+                                <div class="absolute inset-x-0 bottom-0 p-4 md:hidden">
+                                    <div class="flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-wider text-red-400 mb-1">
+                                        <span>{{ $leadStory->category->name ?? 'Special Report' }}</span>
+                                        <span class="text-slate-400">&bull;</span>
+                                        <span class="text-slate-300 font-medium">{{ $leadStory->published_at?->diffForHumans() }}</span>
+                                    </div>
+                                    <h1 class="text-lg sm:text-xl font-extrabold tracking-tight text-white leading-snug font-headline">
+                                        {{ $leadStory->title }}
+                                    </h1>
+                                </div>
+                            </a>
 
                             <!-- Lead Narrative Content (6 cols) -->
-                            <div class="md:col-span-6 flex flex-col justify-between">
+                            <div class="md:col-span-6 p-4 sm:p-5 flex flex-col justify-between">
                                 <div>
-                                    <div class="flex items-center space-x-2 text-[11px] font-extrabold uppercase tracking-wider text-[#d9252a] mb-1.5">
+                                    <div class="hidden md:flex items-center gap-2 text-[11px] font-extrabold uppercase tracking-wider text-[#d9252a] mb-1.5">
                                         <span>{{ $leadStory->category->name ?? 'Special Report' }}</span>
-                                        <span class="text-slate-300">•</span>
+                                        <span class="text-slate-300">&bull;</span>
                                         <span class="text-slate-500 font-medium">{{ $leadStory->published_at?->diffForHumans() }}</span>
                                     </div>
 
-                                    <h1 class="text-xl sm:text-2xl font-extrabold tracking-tight text-slate-950 group-hover:text-[#1b52bc] transition leading-tight font-headline">
+                                    <h1 class="hidden md:block text-xl sm:text-2xl font-extrabold tracking-tight text-slate-950 group-hover:text-[#1b52bc] transition leading-tight font-headline">
                                         <a href="{{ route('articles.show', $leadStory->slug) }}">
                                             {{ $leadStory->title }}
                                         </a>
                                     </h1>
 
-                                    <p class="text-xs sm:text-sm text-slate-600 mt-2 line-clamp-3 leading-relaxed">
+                                    <p class="text-xs sm:text-sm text-slate-600 md:mt-2 line-clamp-3 leading-relaxed">
                                         {{ $leadStory->summary }}
                                     </p>
-
-                                    <!-- Key Takeaways / Related Bullets -->
-                                    <div class="mt-3 pt-2.5 border-t border-slate-100 space-y-1 text-xs">
-                                        <div class="flex items-start space-x-1.5">
-                                            <span class="text-[#d9252a] font-bold text-xs">▶</span>
-                                            <span class="font-semibold text-slate-800">Sh415B baseline disbursed directly to all 47 counties</span>
-                                        </div>
-                                        <div class="flex items-start space-x-1.5">
-                                            <span class="text-[#d9252a] font-bold text-xs">▶</span>
-                                            <span class="text-slate-600">Health, rural roads & water infrastructure prioritized</span>
-                                        </div>
-                                    </div>
                                 </div>
 
                                 <div class="pt-3 mt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400">
-                                    <span class="font-bold text-slate-800">By {{ $leadStory->author->name ?? 'David Ochieng' }}</span>
+                                    <span class="font-bold text-slate-800">By {{ $leadStory->author->name ?? 'Kisii TV Desk' }}</span>
                                     <span>{{ $leadStory->reading_time_minutes ?? 4 }} min read</span>
                                 </div>
                             </div>
@@ -75,27 +77,29 @@
                     </article>
                 @endif
 
-                <!-- 2 Secondary Featured Stories Below the Lead (Side-by-Side) -->
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                <!-- 2 Secondary Featured Stories Below the Lead (2-Column Grid Even on Mobile) -->
+                <div class="grid grid-cols-2 gap-3 sm:gap-5">
                     @foreach($secondaryFeatured->take(2) as $article)
-                        <article class="group bg-white border border-slate-200/80 hover:border-[#1b52bc] p-3.5 transition flex flex-col justify-between shadow-sm">
+                        <article class="group bg-white rounded-xl border border-slate-200/80 hover:border-[#1b52bc] overflow-hidden transition flex flex-col justify-between shadow-2xs">
                             <div>
-                                <div class="relative w-full aspect-[16/10] overflow-hidden bg-slate-900 mb-2.5">
-                                    <img src="{{ $article->featured_image }}" alt="{{ $article->title }}" class="w-full h-full object-cover group-hover:scale-105 transition duration-300">
-                                    <span class="absolute top-2 left-2 bg-[#0a1c3d] text-white text-[9px] font-black uppercase tracking-wider px-2 py-0.5">
+                                <a href="{{ route('articles.show', $article->slug) }}" class="relative block w-full aspect-[16/10] overflow-hidden bg-slate-900">
+                                    <img src="{{ $article->featured_image }}" alt="{{ $article->title }}" loading="lazy" class="w-full h-full object-cover group-hover:scale-105 transition duration-300">
+                                    <span class="absolute top-2 left-2 bg-[#0a1c3d]/90 text-white text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-xs">
                                         {{ $article->category->name ?? 'News' }}
                                     </span>
+                                </a>
+                                <div class="p-2.5 sm:p-3.5">
+                                    <h3 class="text-[13px] sm:text-base font-bold text-slate-950 group-hover:text-[#1b52bc] transition leading-snug font-headline line-clamp-3 sm:line-clamp-2">
+                                        <a href="{{ route('articles.show', $article->slug) }}">{{ $article->title }}</a>
+                                    </h3>
+                                    <p class="hidden sm:block text-xs text-slate-600 line-clamp-2 mt-1 leading-relaxed">
+                                        {{ $article->summary }}
+                                    </p>
                                 </div>
-                                <h3 class="text-sm sm:text-base font-bold text-slate-950 group-hover:text-[#1b52bc] transition leading-snug font-headline line-clamp-2">
-                                    <a href="{{ route('articles.show', $article->slug) }}">{{ $article->title }}</a>
-                                </h3>
-                                <p class="text-xs text-slate-600 line-clamp-2 mt-1 leading-relaxed">
-                                    {{ $article->summary }}
-                                </p>
                             </div>
-                            <div class="text-[11px] text-slate-400 pt-2 mt-2 border-t border-slate-100 flex items-center justify-between">
-                                <span>By {{ $article->author->name ?? 'News Desk' }}</span>
-                                <span>{{ $article->published_at?->diffForHumans() }}</span>
+                            <div class="text-[10px] sm:text-[11px] text-slate-400 px-2.5 sm:px-3.5 pb-2.5 pt-2 border-t border-slate-100 flex items-center justify-between gap-1">
+                                <span class="truncate">{{ $article->published_at?->diffForHumans() }}</span>
+                                <span class="hidden sm:inline truncate">By {{ $article->author->name ?? 'News Desk' }}</span>
                             </div>
                         </article>
                     @endforeach
@@ -406,100 +410,61 @@
     @endif
 
     <!-- ======================================================== -->
-    <!-- SECTION 4: KENYA & NATIONAL AFFAIRS (CATEGORY GRID)      -->
+    <!-- CATEGORY HERO + RESPONSIVE GRID SECTIONS                 -->
     <!-- ======================================================== -->
-    @if(isset($categoryArticles['kenya']) && $categoryArticles['kenya']['articles']->isNotEmpty())
-        <section id="category-kenya" class="py-8 border-b border-slate-200">
-            <div class="flex items-center justify-between pb-2 mb-6 border-b-2 border-[#1b52bc]">
-                <div class="flex items-center space-x-3">
-                    <h2 class="text-xl font-extrabold uppercase tracking-tight text-slate-950 font-headline">
-                        Kenya &amp; National Headlines
-                    </h2>
-                </div>
-                <a href="{{ route('categories.show', 'kenya') }}" class="text-xs font-bold uppercase tracking-wider text-[#1b52bc] hover:underline">
-                    View National Wire &rarr;
-                </a>
-            </div>
-
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                @foreach($categoryArticles['kenya']['articles'] as $article)
-                    <x-article-card :article="$article" variant="standard" />
-                @endforeach
-            </div>
-        </section>
+    @if(isset($categoryArticles['kenya']))
+        <x-category-section
+            id="category-kenya"
+            title="Kenya & National"
+            slug="kenya"
+            link-label="National Wire"
+            :articles="$categoryArticles['kenya']['articles']"
+        />
     @endif
 
-    <!-- ======================================================== -->
-    <!-- SECTION 5: POLITICS & GOVERNANCE                         -->
-    <!-- ======================================================== -->
-    @if(isset($categoryArticles['politics']) && $categoryArticles['politics']['articles']->isNotEmpty())
-        <section id="category-politics" class="py-8 border-b border-slate-200">
-            <div class="flex items-center justify-between pb-2 mb-6 border-b-2 border-[#1b52bc]">
-                <div class="flex items-center space-x-3">
-                    <h2 class="text-xl font-extrabold uppercase tracking-tight text-slate-950 font-headline">
-                        Politics &amp; National Governance
-                    </h2>
-                </div>
-                <a href="{{ route('categories.show', 'politics') }}" class="text-xs font-bold uppercase tracking-wider text-[#1b52bc] hover:underline">
-                    View Political Wire &rarr;
-                </a>
-            </div>
-
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                @foreach($categoryArticles['politics']['articles'] as $article)
-                    <x-article-card :article="$article" variant="standard" />
-                @endforeach
-            </div>
-        </section>
+    @if(isset($categoryArticles['politics']))
+        <x-category-section
+            id="category-politics"
+            title="Politics & Governance"
+            slug="politics"
+            link-label="Political Wire"
+            :articles="$categoryArticles['politics']['articles']"
+        />
     @endif
 
-    <!-- ======================================================== -->
-    <!-- SECTION 6: COUNTIES & DEVOLUTION                         -->
-    <!-- ======================================================== -->
-    @if(isset($categoryArticles['counties']) && $categoryArticles['counties']['articles']->isNotEmpty())
-        <section id="category-counties" class="py-8 border-b border-slate-200">
-            <div class="flex items-center justify-between pb-2 mb-6 border-b-2 border-[#1b52bc]">
-                <div class="flex items-center space-x-3">
-                    <h2 class="text-xl font-extrabold uppercase tracking-tight text-slate-950 font-headline">
-                        Counties &amp; Devolution Affairs
-                    </h2>
-                    <span class="text-xs text-slate-500 hidden sm:inline">Grassroots reporting from Kisii, Nyamira, Nairobi, Mombasa &amp; Western</span>
-                </div>
-                <a href="{{ route('categories.show', 'counties') }}" class="text-xs font-bold uppercase tracking-wider text-[#1b52bc] hover:underline">
-                    All Counties &rarr;
-                </a>
-            </div>
-
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                @foreach($categoryArticles['counties']['articles'] as $article)
-                    <x-article-card :article="$article" variant="standard" />
-                @endforeach
-            </div>
-        </section>
+    @if(isset($categoryArticles['counties']))
+        <x-category-section
+            id="category-counties"
+            title="Counties & Devolution"
+            subtitle="Grassroots reporting from Kisii, Nyamira, Nairobi, Mombasa & Western"
+            slug="counties"
+            link-label="All Counties"
+            :articles="$categoryArticles['counties']['articles']"
+        />
     @endif
 
     <!-- ======================================================== -->
     <!-- SECTION 7: IN-CONTENT BILLBOARD AD (970x250)             -->
     <!-- ======================================================== -->
-    <section class="my-8 py-2">
-        <div class="w-full bg-slate-50 border border-slate-200 p-2 text-center max-w-5xl mx-auto">
+    <section class="my-6 sm:my-8 py-2">
+        <div class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-center max-w-5xl mx-auto">
             <span class="text-[9px] font-bold uppercase tracking-widest text-slate-400 block mb-1">Sponsored Commercial Feature</span>
             @if($adsenseInArticleUnit = \App\Models\SiteSetting::renderAdsenseUnit('adsense_in_article_code'))
                 <div class="w-full min-h-[120px] flex items-center justify-center overflow-hidden">
                     {!! $adsenseInArticleUnit !!}
                 </div>
             @elseif(isset($contentAd) && $contentAd)
-                <a href="{{ $contentAd->target_url }}" target="_blank" rel="noopener" class="block overflow-hidden group">
-                    <img src="{{ $contentAd->image_path }}" alt="{{ $contentAd->title }}" class="w-full h-auto max-h-56 object-cover mx-auto">
+                <a href="{{ $contentAd->target_url }}" target="_blank" rel="noopener" class="block overflow-hidden rounded-lg group">
+                    <img src="{{ $contentAd->image_path }}" alt="{{ $contentAd->title }}" loading="lazy" class="w-full h-auto max-h-56 object-cover mx-auto">
                 </a>
             @else
-                <div class="w-full h-32 sm:h-44 bg-gradient-to-r from-[#0a1c3d] via-[#1b52bc] to-[#0a1c3d] text-white p-6 flex items-center justify-between">
+                <div class="w-full rounded-lg bg-gradient-to-r from-[#0a1c3d] via-[#1b52bc] to-[#0a1c3d] text-white p-4 sm:p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-left">
                     <div>
                         <span class="text-[10px] font-black uppercase tracking-widest text-red-300">Media Partnership Opportunities</span>
-                        <h3 class="text-lg sm:text-2xl font-bold font-headline mt-1">Connect Your Brand with Kisii TV's Expanding Audience</h3>
+                        <h3 class="text-base sm:text-2xl font-bold font-headline mt-1">Connect Your Brand with Kisii TV's Expanding Audience</h3>
                         <p class="text-xs text-slate-200 mt-1 hidden sm:block">Leaderboard campaigns, native stories, and prime television broadcast sponsorships.</p>
                     </div>
-                    <a href="{{ route('login') }}" class="px-5 py-2.5 bg-[#d9252a] hover:bg-red-700 text-white text-xs font-bold uppercase tracking-wider transition shrink-0">
+                    <a href="{{ route('login') }}" class="px-4 py-2 bg-[#d9252a] hover:bg-red-700 text-white text-xs font-bold uppercase tracking-wider rounded-md transition shrink-0">
                         Inquire Rates
                     </a>
                 </div>
@@ -507,216 +472,111 @@
         </div>
     </section>
 
-    <!-- ======================================================== -->
-    <!-- SECTION 8: BUSINESS, MARKETS & ECONOMY                   -->
-    <!-- ======================================================== -->
-    @if(isset($categoryArticles['business']) && $categoryArticles['business']['articles']->isNotEmpty())
-        <section id="category-business" class="py-8 border-b border-slate-200">
-            <div class="flex items-center justify-between pb-2 mb-6 border-b-2 border-[#1b52bc]">
-                <h2 class="text-xl font-extrabold uppercase tracking-tight text-slate-950 font-headline">
-                    Business, Markets &amp; Economy
-                </h2>
-                <a href="{{ route('categories.show', 'business') }}" class="text-xs font-bold uppercase tracking-wider text-[#1b52bc] hover:underline">
-                    Market Desk &rarr;
-                </a>
-            </div>
-
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                @foreach($categoryArticles['business']['articles'] as $article)
-                    <x-article-card :article="$article" variant="standard" />
-                @endforeach
-            </div>
-        </section>
+    @if(isset($categoryArticles['business']))
+        <x-category-section
+            id="category-business"
+            title="Business & Economy"
+            slug="business"
+            link-label="Market Desk"
+            :articles="$categoryArticles['business']['articles']"
+        />
     @endif
 
-    <!-- ======================================================== -->
-    <!-- SECTION 9: TECHNOLOGY & SILICON SAVANNAH                 -->
-    <!-- ======================================================== -->
-    @if(isset($categoryArticles['technology']) && $categoryArticles['technology']['articles']->isNotEmpty())
-        <section id="category-technology" class="py-8 border-b border-slate-200">
-            <div class="flex items-center justify-between pb-2 mb-6 border-b-2 border-[#1b52bc]">
-                <div class="flex items-center space-x-3">
-                    <h2 class="text-xl font-extrabold uppercase tracking-tight text-slate-950 font-headline">
-                        Technology &amp; Silicon Savannah
-                    </h2>
-                    <span class="text-xs text-slate-500 hidden sm:inline">AI, Fintech, Mobile Broadband &amp; Green Energy</span>
-                </div>
-                <a href="{{ route('categories.show', 'technology') }}" class="text-xs font-bold uppercase tracking-wider text-[#1b52bc] hover:underline">
-                    Tech Pulse &rarr;
-                </a>
-            </div>
-
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                @foreach($categoryArticles['technology']['articles'] as $article)
-                    <x-article-card :article="$article" variant="standard" />
-                @endforeach
-            </div>
-        </section>
+    @if(isset($categoryArticles['technology']))
+        <x-category-section
+            id="category-technology"
+            title="Technology & Innovation"
+            subtitle="AI, Fintech, Mobile Broadband & Green Energy"
+            slug="technology"
+            link-label="Tech Pulse"
+            :articles="$categoryArticles['technology']['articles']"
+        />
     @endif
 
-    <!-- ======================================================== -->
-    <!-- SECTION 10: CRIME & INVESTIGATIVE REPORTING              -->
-    <!-- ======================================================== -->
-    @if(isset($categoryArticles['crime']) && $categoryArticles['crime']['articles']->isNotEmpty())
-        <section id="category-crime" class="py-8 border-b border-slate-200">
-            <div class="flex items-center justify-between pb-2 mb-6 border-b-2 border-[#d9252a]">
-                <div class="flex items-center space-x-3">
-                    <h2 class="text-xl font-extrabold uppercase tracking-tight text-slate-950 font-headline">
-                        Crime, Courts &amp; Anti-Corruption
-                    </h2>
-                </div>
-                <a href="{{ route('categories.show', 'crime') }}" class="text-xs font-bold uppercase tracking-wider text-[#d9252a] hover:underline">
-                    Investigative Files &rarr;
-                </a>
-            </div>
-
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                @foreach($categoryArticles['crime']['articles'] as $article)
-                    <x-article-card :article="$article" variant="standard" />
-                @endforeach
-            </div>
-        </section>
+    @if(isset($categoryArticles['crime']))
+        <x-category-section
+            id="category-crime"
+            title="Crime & Courts"
+            slug="crime"
+            link-label="Investigative Files"
+            accent="red"
+            :articles="$categoryArticles['crime']['articles']"
+        />
     @endif
 
-    <!-- ======================================================== -->
-    <!-- SECTION 11: EDUCATION & ACADEMIC REFORMS                 -->
-    <!-- ======================================================== -->
-    @if(isset($categoryArticles['education']) && $categoryArticles['education']['articles']->isNotEmpty())
-        <section id="category-education" class="py-8 border-b border-slate-200">
-            <div class="flex items-center justify-between pb-2 mb-6 border-b-2 border-[#1b52bc]">
-                <h2 class="text-xl font-extrabold uppercase tracking-tight text-slate-950 font-headline">
-                    Education &amp; Campus Affairs
-                </h2>
-                <a href="{{ route('categories.show', 'education') }}" class="text-xs font-bold uppercase tracking-wider text-[#1b52bc] hover:underline">
-                    Education Wire &rarr;
-                </a>
-            </div>
-
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                @foreach($categoryArticles['education']['articles'] as $article)
-                    <x-article-card :article="$article" variant="standard" />
-                @endforeach
-            </div>
-        </section>
+    @if(isset($categoryArticles['education']))
+        <x-category-section
+            id="category-education"
+            title="Education & Campus"
+            slug="education"
+            link-label="Education Wire"
+            :articles="$categoryArticles['education']['articles']"
+        />
     @endif
 
-    <!-- ======================================================== -->
-    <!-- SECTION 12: SPORTS & ATHLETICS SUPREMACY                 -->
-    <!-- ======================================================== -->
-    @if(isset($categoryArticles['sports']) && $categoryArticles['sports']['articles']->isNotEmpty())
-        <section id="category-sports" class="py-8 border-b border-slate-200">
-            <div class="flex items-center justify-between pb-2 mb-6 border-b-2 border-[#1b52bc]">
-                <div class="flex items-center space-x-3">
-                    <h2 class="text-xl font-extrabold uppercase tracking-tight text-slate-950 font-headline">
-                        Sports &amp; Athletics Supremacy
-                    </h2>
-                    <span class="text-xs text-slate-500 hidden sm:inline">Marathons, Harambee Stars, Shujaa Sevens &amp; Grassroots Soccer</span>
-                </div>
-                <a href="{{ route('categories.show', 'sports') }}" class="text-xs font-bold uppercase tracking-wider text-[#1b52bc] hover:underline">
-                    Sports Desk &rarr;
-                </a>
-            </div>
-
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                @foreach($categoryArticles['sports']['articles'] as $article)
-                    <x-article-card :article="$article" variant="standard" />
-                @endforeach
-            </div>
-        </section>
+    @if(isset($categoryArticles['sports']))
+        <x-category-section
+            id="category-sports"
+            title="Sports & Athletics"
+            subtitle="Marathons, Harambee Stars, Shujaa Sevens & Grassroots Soccer"
+            slug="sports"
+            link-label="Sports Desk"
+            :articles="$categoryArticles['sports']['articles']"
+        />
     @endif
 
-    <!-- ======================================================== -->
-    <!-- SECTION 13: WORLD & DIPLOMATIC AFFAIRS                   -->
-    <!-- ======================================================== -->
-    @if(isset($categoryArticles['world']) && $categoryArticles['world']['articles']->isNotEmpty())
-        <section id="category-world" class="py-8 border-b border-slate-200">
-            <div class="flex items-center justify-between pb-2 mb-6 border-b-2 border-[#1b52bc]">
-                <h2 class="text-xl font-extrabold uppercase tracking-tight text-slate-950 font-headline">
-                    World &amp; Regional Affairs
-                </h2>
-                <a href="{{ route('categories.show', 'world') }}" class="text-xs font-bold uppercase tracking-wider text-[#1b52bc] hover:underline">
-                    Diplomatic Desk &rarr;
-                </a>
-            </div>
-
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                @foreach($categoryArticles['world']['articles'] as $article)
-                    <x-article-card :article="$article" variant="standard" />
-                @endforeach
-            </div>
-        </section>
+    @if(isset($categoryArticles['world']))
+        <x-category-section
+            id="category-world"
+            title="World & Regional"
+            slug="world"
+            link-label="Diplomatic Desk"
+            :articles="$categoryArticles['world']['articles']"
+        />
     @endif
 
-    <!-- ======================================================== -->
-    <!-- SECTION 14: ENTERTAINMENT, CULTURE & ARTS               -->
-    <!-- ======================================================== -->
-    @if(isset($categoryArticles['entertainment']) && $categoryArticles['entertainment']['articles']->isNotEmpty())
-        <section id="category-entertainment" class="py-8 border-b border-slate-200">
-            <div class="flex items-center justify-between pb-2 mb-6 border-b-2 border-[#1b52bc]">
-                <div class="flex items-center space-x-3">
-                    <h2 class="text-xl font-extrabold uppercase tracking-tight text-slate-950 font-headline">
-                        Entertainment, Music &amp; Culture
-                    </h2>
-                    <span class="text-xs text-slate-500 hidden sm:inline">Cinema, Gusii Heritage, Performing Arts &amp; Celebrity</span>
-                </div>
-                <a href="{{ route('categories.show', 'entertainment') }}" class="text-xs font-bold uppercase tracking-wider text-[#1b52bc] hover:underline">
-                    Arts &amp; Culture Desk &rarr;
-                </a>
-            </div>
-
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                @foreach($categoryArticles['entertainment']['articles'] as $article)
-                    <x-article-card :article="$article" variant="standard" />
-                @endforeach
-            </div>
-        </section>
+    @if(isset($categoryArticles['entertainment']))
+        <x-category-section
+            id="category-entertainment"
+            title="Entertainment & Culture"
+            subtitle="Cinema, Gusii Heritage, Performing Arts & Celebrity"
+            slug="entertainment"
+            link-label="Arts & Culture"
+            :articles="$categoryArticles['entertainment']['articles']"
+        />
     @endif
 
-    <!-- ======================================================== -->
-    <!-- SECTION 15: LIFESTYLE, WELLNESS & TRAVEL                 -->
-    <!-- ======================================================== -->
-    @if(isset($categoryArticles['lifestyle']) && $categoryArticles['lifestyle']['articles']->isNotEmpty())
-        <section id="category-lifestyle" class="py-8 border-b border-slate-200">
-            <div class="flex items-center justify-between pb-2 mb-6 border-b-2 border-[#1b52bc]">
-                <div class="flex items-center space-x-3">
-                    <h2 class="text-xl font-extrabold uppercase tracking-tight text-slate-950 font-headline">
-                        Lifestyle, Wellness &amp; Travel
-                    </h2>
-                    <span class="text-xs text-slate-500 hidden sm:inline">Healthy Living, Safari Getaways &amp; Culinary Explorations</span>
-                </div>
-                <a href="{{ route('categories.show', 'lifestyle') }}" class="text-xs font-bold uppercase tracking-wider text-[#1b52bc] hover:underline">
-                    Lifestyle Wire &rarr;
-                </a>
-            </div>
-
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                @foreach($categoryArticles['lifestyle']['articles'] as $article)
-                    <x-article-card :article="$article" variant="standard" />
-                @endforeach
-            </div>
-        </section>
+    @if(isset($categoryArticles['lifestyle']))
+        <x-category-section
+            id="category-lifestyle"
+            title="Lifestyle & Travel"
+            subtitle="Healthy Living, Safari Getaways & Culinary Explorations"
+            slug="lifestyle"
+            link-label="Lifestyle Wire"
+            :articles="$categoryArticles['lifestyle']['articles']"
+        />
     @endif
 
     <!-- ======================================================== -->
     <!-- SECTION 16: FEATURED VIDEO BROADCAST SHOWCASE            -->
     <!-- ======================================================== -->
     @if(isset($categoryArticles['video']) && $categoryArticles['video']['articles']->isNotEmpty())
-        <section id="featured-videos" class="my-10 bg-[#0a1c3d] text-white p-6 sm:p-8 border-t-4 border-[#d9252a]">
-            <div class="flex items-center justify-between pb-3 mb-6 border-b border-blue-900">
-                <div class="flex items-center space-x-3">
-                    <span class="bg-[#d9252a] text-white p-1 rounded">
+        <section id="featured-videos" class="my-8 bg-[#0a1c3d] text-white p-4 sm:p-8 rounded-xl border-t-4 border-[#d9252a]">
+            <div class="flex items-center justify-between gap-2 pb-3 mb-5 border-b border-blue-900">
+                <div class="flex items-center gap-2.5 min-w-0">
+                    <span class="bg-[#d9252a] text-white p-1 rounded shrink-0">
                         <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
                     </span>
-                    <h2 class="text-xl font-extrabold uppercase tracking-tight text-white font-headline">
-                        Featured Video Reports &amp; Broadcast Bulletins
+                    <h2 class="text-base sm:text-xl font-extrabold uppercase tracking-tight text-white font-headline truncate">
+                        Video Broadcasts
                     </h2>
                 </div>
-                <a href="{{ route('categories.show', 'video') }}" class="text-xs font-bold uppercase tracking-wider text-red-400 hover:text-white transition">
-                    Browse All Video Broadcasts &rarr;
+                <a href="{{ route('categories.show', 'video') }}" class="text-[11px] sm:text-xs font-bold uppercase tracking-wider text-red-400 hover:text-white transition shrink-0">
+                    All Videos &rarr;
                 </a>
             </div>
 
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5">
                 @foreach($categoryArticles['video']['articles'] as $article)
                     <x-article-card :article="$article" variant="video" />
                 @endforeach
@@ -728,35 +588,35 @@
     <!-- SECTION 17: OPINION & EDITORIAL COMMENTARY               -->
     <!-- ======================================================== -->
     @if(isset($categoryArticles['opinion']) && $categoryArticles['opinion']['articles']->isNotEmpty())
-        <section id="category-opinion" class="py-8">
-            <div class="flex items-center justify-between pb-2 mb-6 border-b-2 border-[#1b52bc]">
-                <h2 class="text-xl font-extrabold uppercase tracking-tight text-slate-950 font-headline">
-                    Editorial Board &amp; Thought Leadership
+        <section id="category-opinion" class="py-6 sm:py-8">
+            <div class="flex items-center justify-between gap-2 pb-2 mb-5 border-b-2 border-[#1b52bc]">
+                <h2 class="text-base sm:text-xl font-extrabold uppercase tracking-tight text-slate-950 font-headline">
+                    Opinion &amp; Editorial
                 </h2>
-                <a href="{{ route('categories.show', 'opinion') }}" class="text-xs font-bold uppercase tracking-wider text-[#1b52bc] hover:underline">
-                    Read All Columnists &rarr;
+                <a href="{{ route('categories.show', 'opinion') }}" class="text-[11px] sm:text-xs font-bold uppercase tracking-wider text-[#1b52bc] hover:underline shrink-0">
+                    All Columnists &rarr;
                 </a>
             </div>
 
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5">
                 @foreach($categoryArticles['opinion']['articles'] as $article)
-                    <div class="border border-slate-200 bg-slate-50 p-5 flex flex-col justify-between hover:border-[#1b52bc] transition group shadow-sm">
+                    <div class="border border-slate-200 bg-slate-50 rounded-xl p-3.5 sm:p-5 flex flex-col justify-between hover:border-[#1b52bc] transition group shadow-2xs">
                         <div>
-                            <span class="text-[10px] font-black uppercase tracking-widest text-[#d9252a] block mb-2">Columnist Viewpoint</span>
-                            <h3 class="text-base font-bold text-slate-950 group-hover:text-[#1b52bc] transition font-headline leading-snug">
+                            <span class="text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-[#d9252a] block mb-1.5">Columnist</span>
+                            <h3 class="text-xs sm:text-base font-bold text-slate-950 group-hover:text-[#1b52bc] transition font-headline leading-snug line-clamp-3">
                                 <a href="{{ route('articles.show', $article->slug) }}">{{ $article->title }}</a>
                             </h3>
-                            <p class="text-xs text-slate-600 mt-2 line-clamp-3 leading-relaxed">
+                            <p class="hidden sm:block text-xs text-slate-600 mt-2 line-clamp-3 leading-relaxed">
                                 {{ $article->summary }}
                             </p>
                         </div>
-                        <div class="flex items-center space-x-3 pt-4 mt-4 border-t border-slate-200">
-                            <div class="w-9 h-9 rounded-full bg-[#0a1c3d] text-white font-bold text-xs flex items-center justify-center shrink-0 uppercase border border-blue-400">
+                        <div class="flex items-center gap-2 pt-3 mt-3 border-t border-slate-200">
+                            <div class="w-7 h-7 sm:w-9 sm:h-9 rounded-full bg-[#0a1c3d] text-white font-bold text-[10px] sm:text-xs flex items-center justify-center shrink-0 uppercase border border-blue-400">
                                 {{ substr($article->author->name ?? 'ED', 0, 2) }}
                             </div>
-                            <div class="text-xs">
-                                <div class="font-bold text-slate-950">{{ $article->author->name ?? 'Sarah Moraa' }}</div>
-                                <div class="text-slate-500 text-[10px]">{{ $article->author->job_title ?? 'Senior Editorial Columnist' }}</div>
+                            <div class="text-[10px] sm:text-xs min-w-0">
+                                <div class="font-bold text-slate-950 truncate">{{ $article->author->name ?? 'Editorial Desk' }}</div>
+                                <div class="text-slate-500 text-[9px] sm:text-[10px] truncate">{{ $article->author->job_title ?? 'Columnist' }}</div>
                             </div>
                         </div>
                     </div>

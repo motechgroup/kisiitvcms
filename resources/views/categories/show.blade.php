@@ -31,11 +31,11 @@
 @endpush
 
 @section('content')
-<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+<div class="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6">
 
     <!-- Category Header Masthead -->
-    <div class="bg-gradient-to-r from-[#0a1c3d] via-[#1b52bc] to-[#0a1c3d] text-white p-6 sm:p-8 mb-8 border-b-4 border-[#d9252a] shadow">
-        <div class="flex items-center space-x-2 text-[11px] font-bold uppercase tracking-widest text-red-300 mb-2">
+    <div class="bg-gradient-to-r from-[#0a1c3d] via-[#1b52bc] to-[#0a1c3d] text-white p-5 sm:p-8 mb-6 sm:mb-8 rounded-xl border-b-4 border-[#d9252a] shadow">
+        <div class="flex items-center gap-2 text-[10px] sm:text-[11px] font-bold uppercase tracking-widest text-red-300 mb-1.5">
             <a href="{{ route('home') }}" class="hover:underline">Home</a>
             <span>/</span>
             <span>Section Wire</span>
@@ -51,11 +51,11 @@
 
         <!-- Subcategories Filter Pills -->
         @if($subcategories->isNotEmpty())
-            <div class="flex flex-wrap gap-2 pt-4 mt-4 border-t border-blue-900/60">
-                <span class="text-[10px] font-black uppercase text-blue-300 self-center tracking-wider mr-1">Topics:</span>
+            <div class="flex items-center gap-2 overflow-x-auto no-scrollbar pt-3.5 mt-3.5 border-t border-blue-900/60">
+                <span class="text-[10px] font-black uppercase text-blue-300 tracking-wider shrink-0">Topics:</span>
                 @foreach($subcategories as $sub)
-                    <a href="{{ route('categories.show', $sub->slug) }}" 
-                       class="text-xs font-semibold bg-white/10 hover:bg-[#d9252a] text-white px-3 py-1 rounded-full transition">
+                    <a href="{{ route('categories.show', $sub->slug) }}"
+                       class="text-xs font-semibold bg-white/10 hover:bg-[#d9252a] text-white px-3 py-1 rounded-full whitespace-nowrap shrink-0 transition">
                         {{ $sub->name }}
                     </a>
                 @endforeach
@@ -64,26 +64,24 @@
     </div>
 
     <!-- Main Content & Sidebar Grid -->
-    <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12">
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-10">
 
-        <!-- Articles Grid (8 cols) -->
-        <div class="lg:col-span-8 space-y-8">
+        <!-- Articles Hero + 2-Column Mobile Grid (8 cols) -->
+        <div class="lg:col-span-8 space-y-5 sm:space-y-7">
             @if($articles->isNotEmpty())
-                <!-- Lead Story for Category -->
+                <!-- Category Hero Story -->
                 @php $leadCatStory = $articles->first(); @endphp
-                <div class="border-b-2 border-slate-900 pb-8">
-                    <x-article-card :article="$leadCatStory" variant="lead" />
-                </div>
+                <x-article-card :article="$leadCatStory" variant="category-hero" />
 
-                <!-- Remaining Articles Grid -->
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                <!-- Remaining Articles Grid (2 columns on mobile & desktop) -->
+                <div class="grid grid-cols-2 gap-3 sm:gap-5">
                     @foreach($articles->skip(1) as $art)
                         <x-article-card :article="$art" variant="standard" />
                     @endforeach
                 </div>
 
                 <!-- Pagination -->
-                <div class="pt-6 border-t border-slate-200">
+                <div class="pt-5 border-t border-slate-200">
                     {{ $articles->links() }}
                 </div>
             @else
