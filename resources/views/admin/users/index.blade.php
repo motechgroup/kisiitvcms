@@ -134,6 +134,16 @@
                                     Edit
                                 </a>
 
+                                @if($user->email && ! str_ends_with(strtolower($user->email), '@guests.kisiitv.co.ke'))
+                                    <form method="POST" action="{{ route('admin.users.send-reset-link', $user) }}" class="inline"
+                                        onsubmit="return confirm('Send a password reset email to {{ $user->email }}?');">
+                                        @csrf
+                                        <button type="submit" class="text-amber-700 hover:underline font-bold cursor-pointer">
+                                            Reset Password
+                                        </button>
+                                    </form>
+                                @endif
+
                                 @if($user->id !== auth()->id())
                                     <form method="POST" action="{{ route('admin.users.toggle-active', $user) }}" class="inline">
                                         @csrf

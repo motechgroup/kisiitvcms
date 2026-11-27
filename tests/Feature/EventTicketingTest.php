@@ -10,10 +10,12 @@ use App\Models\EventTicketOrder;
 use App\Models\PaymentGateway;
 use App\Models\Role;
 use App\Models\User;
+use App\Notifications\KisiiTvResetPasswordNotification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Notification;
 use Tests\TestCase;
 
 class EventTicketingTest extends TestCase
@@ -452,5 +454,36 @@ class EventTicketingTest extends TestCase
         Mail::assertSent(EventTicketMail::class, function (EventTicketMail $mail) {
             return $mail->hasTo('admin-check@kisiitv.co.ke') && $mail->isTestPreview === true;
         });
+    }
+
+    public function test_admin_and_users_can_trigger_password_reset_via_hello_kisiitv_mailer(): void
+    {
+        Notification::fake();
+
+        $staff = User::factory()->create([
+            'email' => 'reporter.reset@kisiitv.co.ke',
+            'is_active' => true,
+        ]);
+
+        // 1. Admin triggers password reset for another user
+        $this->actingAs($this->superAdmin)
+            ->post(route('admin.users.send-reset-link', $staff))
+            ->assertSessionHas('success');
+
+        Notification::assertSentTo(
+            $staff,
+            KisiiTvResetPasswordNotification::class,
+            function (KisiiTvResetPasswordNotification $notification) use ($staff) {
+                $mail = $notification->toMail($staff);
+
+                return $mail->from[0] === 'hello@kisiitv.co.ke'
+                    && $mail->view === 'emails.password-reset';
+            }
+        );
+
+        // 2. Admin / user self-service forgot password
+        auth()->logout();
+        $this->post(route('password.email'), ['email' => $this->superAdmin->email])
+            ->assertSessionHas('status');
     }
 }

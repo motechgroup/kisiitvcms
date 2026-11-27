@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Notifications\KisiiTvResetPasswordNotification;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -214,5 +215,13 @@ class User extends Authenticatable
         }
 
         return 'https://ui-avatars.com/api/?name='.urlencode($this->name).'&color=FFFFFF&background=1b52bc&bold=true';
+    }
+
+    /**
+     * Send the branded password reset notification via hello@kisiitv.co.ke.
+     */
+    public function sendPasswordResetNotification($token): void
+    {
+        $this->notify(new KisiiTvResetPasswordNotification($token));
     }
 }

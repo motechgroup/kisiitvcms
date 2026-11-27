@@ -8,6 +8,7 @@ use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Password;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
@@ -175,5 +176,24 @@ class UserController extends Controller
         $status = $user->is_active ? 'activated' : 'deactivated';
 
         return redirect()->back()->with('success', "User account {$status}.");
+    }
+
+    /**
+     * Send a password reset link email to any admin or user via hello@kisiitv.co.ke.
+     */
+    public function sendResetLink(User $user): RedirectResponse
+    {
+        if (blank($user->email) || str_ends_with(strtolower($user->email), '@guests.kisiitv.co.ke')) {
+            return redirect()->back()->with('error', "User '{$user->name}' does not have a valid email address for password reset.");
+        }
+
+        try {
+            $token = Password::broker()->createToken($user);
+            $user->sendPasswordResetNotification($token);
+
+            return redirect()->back()->with('success', "Password reset link sent to {$user->email} via hello@kisiitv.co.ke.");
+        } catch (\Throwable $e) {
+            return redirect()->back()->with('error', 'Failed to send password reset email: '.$e->getMessage());
+        }
     }
 }

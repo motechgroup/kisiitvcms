@@ -49,6 +49,17 @@ return [
             'local_domain' => env('MAIL_EHLO_DOMAIN', parse_url((string) env('APP_URL', 'http://localhost'), PHP_URL_HOST)),
         ],
 
+        'auth_smtp' => [
+            'transport' => 'smtp',
+            'scheme' => env('AUTH_MAIL_SCHEME', 'smtps'),
+            'host' => env('AUTH_MAIL_HOST', 'mail.kisiitv.co.ke'),
+            'port' => env('AUTH_MAIL_PORT', 465),
+            'username' => env('AUTH_MAIL_USERNAME', 'hello@kisiitv.co.ke'),
+            'password' => env('AUTH_MAIL_PASSWORD'),
+            'timeout' => null,
+            'local_domain' => env('MAIL_EHLO_DOMAIN', parse_url((string) env('APP_URL', 'http://localhost'), PHP_URL_HOST)),
+        ],
+
         'ses' => [
             'transport' => 'ses',
         ],
@@ -113,6 +124,13 @@ return [
     'from' => [
         'address' => env('MAIL_FROM_ADDRESS', 'hello@example.com'),
         'name' => env('MAIL_FROM_NAME', env('APP_NAME', 'Laravel')),
+    ],
+
+    'auth_mailer' => env('AUTH_MAIL_MAILER', env('MAIL_MAILER', 'auth_smtp')),
+
+    'auth_from' => [
+        'address' => env('AUTH_MAIL_FROM_ADDRESS', 'hello@kisiitv.co.ke'),
+        'name' => env('AUTH_MAIL_FROM_NAME', 'Kisii TV Accounts'),
     ],
 
 ];

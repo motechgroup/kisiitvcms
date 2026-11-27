@@ -111,6 +111,7 @@ Route::middleware('auth')->group(function () {
 
         // Staff & User Management
         Route::patch('/users/{user}/toggle-active', [UserController::class, 'toggleActive'])->name('users.toggle-active');
+        Route::post('/users/{user}/send-reset-link', [UserController::class, 'sendResetLink'])->name('users.send-reset-link');
         Route::resource('users', UserController::class);
 
         // Site Settings, Branding & Theme Customizer
