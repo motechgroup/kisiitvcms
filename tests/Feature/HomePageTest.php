@@ -30,12 +30,12 @@ class HomePageTest extends TestCase
         $response->assertSee('Breaking News');
         $response->assertSee('Latest News Wire');
         $response->assertSee('Trending / Most Read');
-        $response->assertSee('Politics & National Governance');
-        $response->assertSee('Counties & Devolution Affairs');
-        $response->assertSee('Business, Markets & Economy');
-        $response->assertSee('Entertainment, Music & Culture');
-        $response->assertSee('Lifestyle, Wellness & Travel');
-        $response->assertSee('Featured Video Reports & Broadcast Bulletins');
-        $response->assertSee('Editorial Board & Thought Leadership');
+        $response->assertSee('Politics & Governance');
+        $response->assertSee('Counties & Devolution');
+        $response->assertSee('Business & Economy');
+        $response->assertSee('Entertainment & Culture');
+        $response->assertSee('Lifestyle & Travel');
+        $response->assertSee('Video Broadcasts');
+        $response->assertSee('Opinion & Editorial');
     }
 }

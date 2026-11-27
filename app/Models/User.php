@@ -138,6 +138,28 @@ class User extends Authenticatable
     }
 
     /**
+     * Determine if the user is a Super Admin or Administrator.
+     */
+    public function isAdmin(): bool
+    {
+        return $this->is_active && $this->hasRole(['super-admin', 'admin']);
+    }
+
+    /**
+     * Determine if the user is authorized newsroom staff who can access /admin.
+     */
+    public function canAccessAdmin(): bool
+    {
+        if (! $this->is_active) {
+            return false;
+        }
+
+        return $this->roles()
+            ->whereNotIn('slug', ['reader', 'subscriber', 'guest'])
+            ->exists();
+    }
+
+    /**
      * Determine if user has any of the given roles.
      *
      * @param  string|list<string>  $roles

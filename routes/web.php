@@ -81,7 +81,7 @@ Route::middleware('guest')->group(function () {
 Route::middleware('auth')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
-    Route::prefix('admin')->name('admin.')->group(function () {
+    Route::prefix('admin')->name('admin.')->middleware('staff')->group(function () {
         Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
 
         // Fast Action Routes for Super Admin
@@ -109,16 +109,24 @@ Route::middleware('auth')->group(function () {
         Route::patch('/articles/{article}/toggle-editors-pick', [AdminArticleController::class, 'toggleEditorsPick'])->name('articles.toggle-editors-pick');
         Route::resource('articles', AdminArticleController::class);
 
-        // Staff & User Management
-        Route::patch('/users/{user}/toggle-active', [UserController::class, 'toggleActive'])->name('users.toggle-active');
-        Route::post('/users/{user}/send-reset-link', [UserController::class, 'sendResetLink'])->name('users.send-reset-link');
-        Route::resource('users', UserController::class);
+        // Staff & User Management (Admin / Super Admin Only)
+        Route::middleware('admin')->group(function () {
+            Route::patch('/users/{user}/toggle-active', [UserController::class, 'toggleActive'])->name('users.toggle-active');
+            Route::post('/users/{user}/send-reset-link', [UserController::class, 'sendResetLink'])->name('users.send-reset-link');
+            Route::resource('users', UserController::class);
 
-        // Site Settings, Branding & Theme Customizer
-        Route::get('/settings', [SettingController::class, 'index'])->name('settings.index');
-        Route::post('/settings', [SettingController::class, 'update'])->name('settings.update');
-        Route::post('/settings/test-sms', [SettingController::class, 'testSms'])->name('settings.test-sms');
-        Route::post('/settings/test-email', [SettingController::class, 'testEmail'])->name('settings.test-email');
+            // Site Settings, Branding & Theme Customizer
+            Route::get('/settings', [SettingController::class, 'index'])->name('settings.index');
+            Route::post('/settings', [SettingController::class, 'update'])->name('settings.update');
+            Route::post('/settings/test-sms', [SettingController::class, 'testSms'])->name('settings.test-sms');
+            Route::post('/settings/test-email', [SettingController::class, 'testEmail'])->name('settings.test-email');
+
+            // Payment Gateways Configuration (M-Pesa, Paystack, PayPal, Flutterwave)
+            Route::get('/payment-gateways', [PaymentGatewayController::class, 'index'])->name('payment-gateways.index');
+            Route::put('/payment-gateways/{paymentGateway}', [PaymentGatewayController::class, 'update'])->name('payment-gateways.update');
+            Route::patch('/payment-gateways/{paymentGateway}/toggle-active', [PaymentGatewayController::class, 'toggleActive'])->name('payment-gateways.toggle-active');
+            Route::patch('/payment-gateways/{paymentGateway}/toggle-mode', [PaymentGatewayController::class, 'toggleMode'])->name('payment-gateways.toggle-mode');
+        });
 
         // Live Streaming Studio Management (YouTube, Facebook, Twitch)
         Route::get('/streams', [AdminLiveStreamController::class, 'index'])->name('streams.index');
@@ -129,12 +137,6 @@ Route::middleware('auth')->group(function () {
         Route::patch('/streams/{liveStream}/toggle-status', [AdminLiveStreamController::class, 'toggleStatus'])->name('streams.toggle-status');
         Route::patch('/streams/{liveStream}/toggle-donations', [AdminLiveStreamController::class, 'toggleDonations'])->name('streams.toggle-donations');
         Route::delete('/streams/{liveStream}', [AdminLiveStreamController::class, 'destroy'])->name('streams.destroy');
-
-        // Payment Gateways Configuration (M-Pesa, Paystack, PayPal, Flutterwave)
-        Route::get('/payment-gateways', [PaymentGatewayController::class, 'index'])->name('payment-gateways.index');
-        Route::put('/payment-gateways/{paymentGateway}', [PaymentGatewayController::class, 'update'])->name('payment-gateways.update');
-        Route::patch('/payment-gateways/{paymentGateway}/toggle-active', [PaymentGatewayController::class, 'toggleActive'])->name('payment-gateways.toggle-active');
-        Route::patch('/payment-gateways/{paymentGateway}/toggle-mode', [PaymentGatewayController::class, 'toggleMode'])->name('payment-gateways.toggle-mode');
 
         // Viewer Donations & Transactions Ledger
         Route::get('/donations', [AdminDonationController::class, 'index'])->name('donations.index');

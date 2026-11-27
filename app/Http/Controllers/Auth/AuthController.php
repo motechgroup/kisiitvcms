@@ -40,8 +40,8 @@ class AuthController extends Controller
         /** @var User $user */
         $user = Auth::user();
 
-        // Redirect newsroom staff directly to admin dashboard
-        if ($user->roles()->exists()) {
+        // Redirect authorized newsroom staff directly to admin dashboard
+        if ($user->canAccessAdmin()) {
             return redirect()->intended(route('admin.dashboard'));
         }
 

@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Category;
 use App\Models\User;
+use Database\Seeders\AdminUserSeeder;
 use Database\Seeders\CategorySeeder;
 use Database\Seeders\NewsContentSeeder;
 use Database\Seeders\RoleAndPermissionSeeder;
@@ -21,6 +22,7 @@ class CategoryNavigationTest extends TestCase
 
         $this->seed([
             RoleAndPermissionSeeder::class,
+            AdminUserSeeder::class,
             CategorySeeder::class,
             SiteSettingSeeder::class,
             NewsContentSeeder::class,

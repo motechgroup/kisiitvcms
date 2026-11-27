@@ -486,4 +486,35 @@ class EventTicketingTest extends TestCase
         $this->post(route('password.email'), ['email' => $this->superAdmin->email])
             ->assertSessionHas('status');
     }
+
+    public function test_regular_signed_up_users_cannot_access_admin_dashboard_and_reporters_cannot_access_system_settings(): void
+    {
+        // Regular public signup (no staff role)
+        $reader = User::factory()->create([
+            'email' => 'reader@example.com',
+            'is_active' => true,
+        ]);
+
+        $this->actingAs($reader)->get(route('admin.dashboard'))->assertStatus(403);
+        $this->actingAs($reader)->get(route('admin.events.index'))->assertStatus(403);
+        $this->actingAs($reader)->get(route('admin.settings.index'))->assertStatus(403);
+        $this->actingAs($reader)->get(route('admin.users.index'))->assertStatus(403);
+        $this->actingAs($reader)->get(route('admin.payment-gateways.index'))->assertStatus(403);
+
+        // Header dropdown hides admin links from regular readers
+        $this->actingAs($reader)->get('/')->assertStatus(200)->assertDontSee('Newsroom Editorial Desk');
+
+        // Reporter staff can access /admin dashboard, but NOT /admin/settings, /admin/users, or /admin/payment-gateways
+        $reporterRole = Role::create(['name' => 'Reporter', 'slug' => 'reporter']);
+        $reporter = User::factory()->create(['email' => 'rep@kisiitv.co.ke', 'is_active' => true]);
+        $reporter->roles()->attach($reporterRole->id);
+
+        $this->actingAs($reporter)->get(route('admin.dashboard'))->assertStatus(200);
+        $this->actingAs($reporter)->get(route('admin.settings.index'))->assertStatus(403);
+        $this->actingAs($reporter)->get(route('admin.users.index'))->assertStatus(403);
+        $this->actingAs($reporter)->get(route('admin.payment-gateways.index'))->assertStatus(403);
+
+        // Super Admin can access everything
+        $this->actingAs($this->superAdmin)->get(route('admin.settings.index'))->assertStatus(200);
+    }
 }
