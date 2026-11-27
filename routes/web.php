@@ -54,6 +54,7 @@ Route::any('/donations/webhook/{gateway}', [DonationController::class, 'webhook'
 
 // Public Events & Digital Ticketing Routes
 Route::get('/events', [EventController::class, 'index'])->name('events.index');
+Route::get('/events/lookup-attendee', [EventController::class, 'lookupAttendee'])->name('events.lookup-attendee');
 Route::get('/events/{event:slug}', [EventController::class, 'show'])->name('events.show');
 Route::post('/events/{event:slug}/purchase', [EventController::class, 'purchase'])->name('events.purchase');
 Route::get('/events/checkout/callback/{gateway}', [EventController::class, 'callback'])->name('events.checkout.callback');
@@ -145,11 +146,13 @@ Route::middleware('auth')->group(function () {
 
         // Events & Digital Ticketing Management
         Route::patch('/events/{event}/toggle-published', [AdminEventController::class, 'togglePublished'])->name('events.toggle-published');
+        Route::patch('/events/{event}/toggle-featured', [AdminEventController::class, 'toggleFeatured'])->name('events.toggle-featured');
+        Route::post('/events/{event}/duplicate', [AdminEventController::class, 'duplicate'])->name('events.duplicate');
         Route::get('/events/{event}/tickets', [AdminEventController::class, 'tickets'])->name('events.tickets');
         Route::patch('/events/tickets/{ticket}/check-in', [AdminEventController::class, 'checkInTicket'])->name('events.tickets.check-in');
         Route::patch('/events/orders/{order}/mark-paid', [AdminEventController::class, 'markOrderPaid'])->name('events.orders.mark-paid');
         Route::post('/events/orders/{order}/resend', [AdminEventController::class, 'resendOrderNotifications'])->name('events.orders.resend');
-        Route::resource('events', AdminEventController::class)->except(['show']);
+        Route::resource('events', AdminEventController::class);
 
         // Staff Profile Settings & Account Information
         Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');

@@ -8,37 +8,73 @@ use App\Models\EventTicket;
 use App\Models\EventTicketOrder;
 use App\Models\EventTicketType;
 use App\Models\PaymentGateway;
+use App\Models\User;
 use App\Services\PaymentGatewayService;
+use App\Services\SmsService;
 use App\Services\TicketFulfillmentService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 use Illuminate\View\View;
 
 class EventController extends Controller
 {
     public function __construct(
         protected PaymentGatewayService $gatewayService,
-        protected TicketFulfillmentService $fulfillmentService
+        protected TicketFulfillmentService $fulfillmentService,
+        protected SmsService $smsService
     ) {}
 
     /**
-     * Public listing of published events with a featured hero event and grid.
+     * Modern public events listing with Upcoming / Past tabs, search, and pagination.
      */
-    public function index(): View
+    public function index(Request $request): View
     {
         $navCategories = Category::cachedNavCategories();
+        $tab = in_array($request->query('tab'), ['upcoming', 'past'], true)
+            ? (string) $request->query('tab')
+            : 'upcoming';
+        $search = trim((string) $request->query('q', ''));
 
-        $events = Event::published()
+        $upcomingCount = Event::published()->upcoming()->count();
+        $pastCount = Event::published()->past()->count();
+
+        $query = Event::published()
             ->with('activeTicketTypes')
-            ->orderByDesc('is_featured')
-            ->orderBy('starts_at')
-            ->paginate(12);
+            ->when($search !== '', function ($q) use ($search): void {
+                $q->where(function ($sub) use ($search): void {
+                    $sub->where('title', 'like', "%{$search}%")
+                        ->orWhere('venue', 'like', "%{$search}%")
+                        ->orWhere('city', 'like', "%{$search}%");
+                });
+            });
 
-        return view('events.index', compact('events', 'navCategories'));
+        if ($tab === 'past') {
+            $events = $query->past()->orderByDesc('starts_at')->paginate(9)->withQueryString();
+        } else {
+            $events = $query->upcoming()->orderByDesc('is_featured')->orderBy('starts_at')->paginate(9)->withQueryString();
+        }
+
+        // Also show a compact preview of recent past events when on the default upcoming tab (page 1, no search)
+        $recentPastEvents = ($tab === 'upcoming' && $search === '' && (int) $request->query('page', 1) === 1)
+            ? Event::published()->past()->with('activeTicketTypes')->orderByDesc('starts_at')->take(3)->get()
+            : collect();
+
+        return view('events.index', compact(
+            'events',
+            'recentPastEvents',
+            'tab',
+            'search',
+            'upcomingCount',
+            'pastCount',
+            'navCategories'
+        ));
     }
 
     /**
-     * Public event details & ticket selection page.
+     * Public event details & frictionless ticket checkout page.
      */
     public function show(Event $event): View
     {
@@ -52,19 +88,58 @@ class EventController extends Controller
     }
 
     /**
-     * Create a ticket order and either issue free tickets immediately or redirect to payment gateway.
+     * Lightweight lookup so returning buyers are automatically remembered by phone number.
+     */
+    public function lookupAttendee(Request $request): JsonResponse
+    {
+        $rawPhone = trim((string) $request->query('phone', ''));
+        if (strlen(preg_replace('/\D/', '', $rawPhone) ?? '') < 9) {
+            return response()->json(['found' => false]);
+        }
+
+        $normalized = $this->smsService->normalizePhone($rawPhone);
+
+        $user = User::where('phone', $normalized)
+            ->orWhere('phone', ltrim($normalized, '+'))
+            ->orWhere('phone', $rawPhone)
+            ->first();
+
+        if (! $user) {
+            return response()->json(['found' => false]);
+        }
+
+        $realEmail = str_ends_with(strtolower((string) $user->email), '@guests.kisiitv.co.ke')
+            ? ''
+            : (string) $user->email;
+
+        return response()->json([
+            'found' => true,
+            'name' => $user->name,
+            'email' => $realEmail,
+        ]);
+    }
+
+    /**
+     * Create a ticket order (phone OR email OR both; auto-creates/remembers user by phone).
      */
     public function purchase(Request $request, Event $event): RedirectResponse
     {
         abort_unless($event->is_published, 404);
 
+        if ($event->isPast()) {
+            return back()->with('error', 'Ticket sales have closed because this event has already ended.');
+        }
+
         $validated = $request->validate([
             'event_ticket_type_id' => ['required', 'integer', 'exists:event_ticket_types,id'],
             'quantity' => ['required', 'integer', 'min:1', 'max:20'],
-            'buyer_name' => ['required', 'string', 'max:150'],
-            'buyer_email' => ['required', 'email', 'max:150'],
-            'buyer_phone' => ['required', 'string', 'max:40'],
+            'buyer_name' => ['nullable', 'string', 'max:150'],
+            'buyer_email' => ['nullable', 'required_without:buyer_phone', 'email', 'max:150'],
+            'buyer_phone' => ['nullable', 'required_without:buyer_email', 'string', 'max:40'],
             'gateway_code' => ['nullable', 'string', 'max:50'],
+        ], [
+            'buyer_email.required_without' => 'Please enter either your phone number or email address so we can send your ticket link.',
+            'buyer_phone.required_without' => 'Please enter either your phone number or email address so we can send your ticket link.',
         ]);
 
         /** @var EventTicketType $ticketType */
@@ -78,19 +153,34 @@ class EventController extends Controller
             return back()->withInput()->with('error', "Only {$ticketType->remaining()} tickets remain for {$ticketType->name}.");
         }
 
+        $normalizedPhone = filled($validated['buyer_phone'] ?? null)
+            ? $this->smsService->normalizePhone((string) $validated['buyer_phone'])
+            : null;
+        $buyerEmail = filled($validated['buyer_email'] ?? null)
+            ? trim((string) $validated['buyer_email'])
+            : null;
+        $buyerName = filled($validated['buyer_name'] ?? null)
+            ? trim((string) $validated['buyer_name'])
+            : null;
+
+        // Automatically find or create a User account when a phone number (or email) is provided
+        $user = $this->resolveOrCreateBuyerAccount($normalizedPhone, $buyerEmail, $buyerName);
+        $resolvedName = $buyerName ?: ($user?->name ?: 'Event Guest');
+
         $unitPrice = (float) $ticketType->price;
         $totalAmount = round($unitPrice * $quantity, 2);
 
-        // Free ticket: fulfill immediately & send SMS + Email
+        // Free ticket: fulfill immediately & send SMS and/or Email
         if ($totalAmount <= 0) {
             $order = EventTicketOrder::create([
                 'event_id' => $event->id,
                 'event_ticket_type_id' => $ticketType->id,
+                'user_id' => $user?->id,
                 'gateway_code' => 'free',
                 'order_reference' => EventTicketOrder::generateReference(),
-                'buyer_name' => trim($validated['buyer_name']),
-                'buyer_email' => trim($validated['buyer_email']),
-                'buyer_phone' => trim($validated['buyer_phone']),
+                'buyer_name' => $resolvedName,
+                'buyer_email' => $buyerEmail,
+                'buyer_phone' => $normalizedPhone,
                 'quantity' => $quantity,
                 'unit_price' => 0,
                 'total_amount' => 0,
@@ -102,7 +192,7 @@ class EventController extends Controller
             $firstTicket = $order->tickets->firstOrFail();
 
             return redirect()->route('tickets.show', $firstTicket->access_token)
-                ->with('success', 'Your free ticket is confirmed! Your ticket link has been sent to your SMS and Email.');
+                ->with('success', 'Your free ticket is confirmed! Your digital ticket link has been sent.');
         }
 
         $gatewayCode = $validated['gateway_code'] ?: PaymentGateway::where('is_active', true)->orderBy('display_order')->value('code');
@@ -115,12 +205,13 @@ class EventController extends Controller
         $order = EventTicketOrder::create([
             'event_id' => $event->id,
             'event_ticket_type_id' => $ticketType->id,
+            'user_id' => $user?->id,
             'payment_gateway_id' => $gateway->id,
             'gateway_code' => $gateway->code,
             'order_reference' => EventTicketOrder::generateReference(),
-            'buyer_name' => trim($validated['buyer_name']),
-            'buyer_email' => trim($validated['buyer_email']),
-            'buyer_phone' => trim($validated['buyer_phone']),
+            'buyer_name' => $resolvedName,
+            'buyer_email' => $buyerEmail,
+            'buyer_phone' => $normalizedPhone,
             'quantity' => $quantity,
             'unit_price' => $unitPrice,
             'total_amount' => $totalAmount,
@@ -135,10 +226,12 @@ class EventController extends Controller
                 'order' => $order->order_reference,
             ]);
 
+            $paystackEmail = $buyerEmail ?: ($user?->email ?: 'tickets@kisiitv.co.ke');
+
             $init = $this->gatewayService->initializePaystackPayment(
                 gateway: $gateway,
                 amount: $totalAmount,
-                email: $order->buyer_email,
+                email: $paystackEmail,
                 reference: $order->order_reference,
                 callbackUrl: $callbackUrl,
                 metadata: [
@@ -162,6 +255,76 @@ class EventController extends Controller
         }
 
         return redirect()->route('events.checkout', $order->order_reference);
+    }
+
+    /**
+     * Find an existing user by phone (or email), or auto-create a lightweight account
+     * when a phone number is provided so the system remembers them on future bookings.
+     */
+    protected function resolveOrCreateBuyerAccount(?string $normalizedPhone, ?string $email, ?string $name): ?User
+    {
+        if (auth()->check()) {
+            $authUser = auth()->user();
+            if ($normalizedPhone && blank($authUser->phone)) {
+                $authUser->update(['phone' => $normalizedPhone]);
+            }
+
+            return $authUser;
+        }
+
+        $user = null;
+
+        if ($normalizedPhone) {
+            $user = User::where('phone', $normalizedPhone)
+                ->orWhere('phone', ltrim($normalizedPhone, '+'))
+                ->first();
+        }
+
+        if (! $user && $email) {
+            $user = User::where('email', $email)->first();
+        }
+
+        if ($user) {
+            $updates = [];
+            if ($normalizedPhone && blank($user->phone)) {
+                $updates['phone'] = $normalizedPhone;
+            }
+            if ($name && ($user->name === 'Event Guest' || str_starts_with($user->name, 'Guest '))) {
+                $updates['name'] = $name;
+            }
+            if ($email && str_ends_with(strtolower($user->email), '@guests.kisiitv.co.ke') && ! User::where('email', $email)->exists()) {
+                $updates['email'] = $email;
+            }
+            if ($updates !== []) {
+                $user->update($updates);
+            }
+
+            return $user;
+        }
+
+        // Auto-create account when user provides their phone number (no signup friction!)
+        if (! $normalizedPhone) {
+            return null;
+        }
+
+        $digits = preg_replace('/\D/', '', $normalizedPhone) ?: Str::random(8);
+        $accountEmail = $email ?: "{$digits}@guests.kisiitv.co.ke";
+        $baseUsername = 'guest_'.substr($digits, -9);
+        $username = $baseUsername;
+        $suffix = 1;
+        while (User::where('username', $username)->exists()) {
+            $username = "{$baseUsername}_{$suffix}";
+            $suffix++;
+        }
+
+        return User::create([
+            'name' => $name ?: 'Guest '.substr($digits, -4),
+            'username' => $username,
+            'email' => $accountEmail,
+            'phone' => $normalizedPhone,
+            'password' => Hash::make(Str::random(24)),
+            'is_active' => true,
+        ]);
     }
 
     /**
@@ -221,7 +384,7 @@ class EventController extends Controller
         $firstTicket = $order->tickets->firstOrFail();
 
         return redirect()->route('tickets.show', $firstTicket->access_token)
-            ->with('success', 'Payment confirmed! Your digital ticket link has been sent to your SMS and Email.');
+            ->with('success', 'Payment confirmed! Your digital ticket link has been sent.');
     }
 
     /**
@@ -241,7 +404,7 @@ class EventController extends Controller
         $firstTicket = $order->tickets->firstOrFail();
 
         return redirect()->route('tickets.show', $firstTicket->access_token)
-            ->with('success', 'Ticket confirmed! Your digital pass link has been sent to your SMS and Email.');
+            ->with('success', 'Ticket confirmed! Your digital pass link has been sent.');
     }
 
     /**

@@ -138,6 +138,16 @@ class Event extends Model
         return $query->where('starts_at', '>=', now()->subHours(6));
     }
 
+    public function scopePast(Builder $query): Builder
+    {
+        return $query->where('starts_at', '<', now()->subHours(6));
+    }
+
+    public function isPast(): bool
+    {
+        return $this->starts_at !== null && $this->starts_at->lt(now()->subHours(6));
+    }
+
     public function startingPrice(): ?float
     {
         $min = $this->relationLoaded('activeTicketTypes')

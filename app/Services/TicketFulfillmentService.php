@@ -45,6 +45,7 @@ class TicketFulfillmentService
                     'event_ticket_order_id' => $locked->id,
                     'event_id' => $locked->event_id,
                     'event_ticket_type_id' => $locked->event_ticket_type_id,
+                    'user_id' => $locked->user_id,
                     'ticket_code' => EventTicket::generateTicketCode(),
                     'access_token' => EventTicket::generateAccessToken(),
                     'attendee_name' => $locked->buyer_name,
@@ -76,9 +77,9 @@ class TicketFulfillmentService
         $emailSent = false;
         $smsSent = false;
 
-        // 1. Send Email with ticket link(s)
+        // 1. Send Email with ticket link(s) when a real email address was provided
         try {
-            if (filled($order->buyer_email)) {
+            if (filled($order->buyer_email) && ! str_ends_with(strtolower($order->buyer_email), '@guests.kisiitv.co.ke')) {
                 Mail::to($order->buyer_email)->send(new EventTicketMail($order));
                 $emailSent = true;
             }

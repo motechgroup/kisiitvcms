@@ -14,25 +14,115 @@ use Illuminate\View\View;
 
 class EventController extends Controller
 {
-    public function index(): View
+    public function index(Request $request): View
     {
+        $search = trim((string) $request->query('q', ''));
+        $timeline = (string) $request->query('timeline', 'all');
+        $status = (string) $request->query('status', 'all');
+
         $events = Event::withCount([
             'tickets',
+            'tickets as checked_in_tickets_count' => fn ($q) => $q->where('status', 'checked_in'),
             'orders as paid_orders_count' => fn ($q) => $q->where('status', 'paid'),
         ])
             ->withSum(['orders as paid_revenue' => fn ($q) => $q->where('status', 'paid')], 'total_amount')
             ->with('ticketTypes')
+            ->when($search !== '', function ($q) use ($search): void {
+                $q->where(function ($sub) use ($search): void {
+                    $sub->where('title', 'like', "%{$search}%")
+                        ->orWhere('venue', 'like', "%{$search}%")
+                        ->orWhere('city', 'like', "%{$search}%");
+                });
+            })
+            ->when($timeline === 'upcoming', fn ($q) => $q->upcoming())
+            ->when($timeline === 'past', fn ($q) => $q->past())
+            ->when($status === 'published', fn ($q) => $q->where('is_published', true))
+            ->when($status === 'draft', fn ($q) => $q->where('is_published', false))
             ->latest('starts_at')
-            ->paginate(15);
+            ->paginate(15)
+            ->withQueryString();
 
         $stats = [
             'total_events' => Event::count(),
+            'upcoming_events' => Event::upcoming()->count(),
+            'past_events' => Event::past()->count(),
             'published_events' => Event::where('is_published', true)->count(),
             'tickets_issued' => EventTicket::count(),
+            'checked_in_tickets' => EventTicket::where('status', 'checked_in')->count(),
             'total_revenue' => (float) EventTicketOrder::where('status', 'paid')->sum('total_amount'),
         ];
 
-        return view('admin.events.index', compact('events', 'stats'));
+        return view('admin.events.index', compact('events', 'stats', 'search', 'timeline', 'status'));
+    }
+
+    /**
+     * Detailed single-event analytics view: revenue, tickets sold, tier breakdown, and attendees/users.
+     */
+    public function show(Event $event): View
+    {
+        $event->load(['ticketTypes' => fn ($q) => $q->withCount('tickets')]);
+
+        $paidOrders = $event->orders()->where('status', 'paid')->with(['user', 'ticketType'])->latest('paid_at')->get();
+        $pendingOrdersCount = $event->orders()->where('status', 'pending')->count();
+        $ticketsIssued = $event->tickets()->count();
+        $checkedInCount = $event->tickets()->where('status', 'checked_in')->count();
+        $totalRevenue = (float) $paidOrders->sum('total_amount');
+
+        $totalCapacity = $event->ticketTypes->every(fn ($t) => $t->quantity_available !== null)
+            ? (int) $event->ticketTypes->sum('quantity_available')
+            : null;
+
+        $tierBreakdown = $event->ticketTypes->map(function ($tier) use ($paidOrders): array {
+            $tierRevenue = (float) $paidOrders->where('event_ticket_type_id', $tier->id)->sum('total_amount');
+
+            return [
+                'id' => $tier->id,
+                'name' => $tier->name,
+                'price' => (float) $tier->price,
+                'sold' => (int) $tier->quantity_sold,
+                'capacity' => $tier->quantity_available,
+                'remaining' => $tier->remaining(),
+                'revenue' => $tierRevenue,
+                'percent' => $tier->quantity_available ? min(100, (int) round(($tier->quantity_sold / max(1, $tier->quantity_available)) * 100)) : null,
+            ];
+        });
+
+        // Group attendees/buyers cleanly by user_id or phone/email
+        $attendees = $paidOrders
+            ->groupBy(fn (EventTicketOrder $o) => $o->user_id ? 'u:'.$o->user_id : 'c:'.($o->buyer_phone ?: $o->buyer_email ?: $o->id))
+            ->map(function ($group): array {
+                /** @var EventTicketOrder $first */
+                $first = $group->first();
+
+                return [
+                    'user' => $first->user,
+                    'name' => $first->user?->name ?: $first->buyer_name,
+                    'phone' => $first->buyer_phone ?: $first->user?->phone,
+                    'email' => $first->buyer_email,
+                    'orders_count' => $group->count(),
+                    'tickets_count' => (int) $group->sum('quantity'),
+                    'total_spent' => (float) $group->sum('total_amount'),
+                    'last_purchased_at' => $first->paid_at ?? $first->created_at,
+                    'sms_sent' => $group->contains(fn ($o) => $o->sms_sent_at !== null),
+                    'email_sent' => $group->contains(fn ($o) => $o->email_sent_at !== null),
+                ];
+            })
+            ->values();
+
+        $metrics = [
+            'revenue' => $totalRevenue,
+            'paid_orders' => $paidOrders->count(),
+            'pending_orders' => $pendingOrdersCount,
+            'tickets_issued' => $ticketsIssued,
+            'checked_in' => $checkedInCount,
+            'check_in_rate' => $ticketsIssued > 0 ? (int) round(($checkedInCount / $ticketsIssued) * 100) : 0,
+            'capacity' => $totalCapacity,
+            'unique_attendees' => $attendees->count(),
+            'sms_delivered' => $paidOrders->whereNotNull('sms_sent_at')->count(),
+            'email_delivered' => $paidOrders->whereNotNull('email_sent_at')->count(),
+        ];
+
+        return view('admin.events.show', compact('event', 'metrics', 'tierBreakdown', 'attendees', 'paidOrders'));
     }
 
     public function create(): View
@@ -121,8 +211,53 @@ class EventController extends Controller
 
         $state = $event->is_published ? 'published' : 'hidden';
 
-        return redirect()->route('admin.events.index')
-            ->with('success', "Event '{$event->title}' is now {$state}.");
+        return back()->with('success', "Event '{$event->title}' is now {$state}.");
+    }
+
+    public function toggleFeatured(Event $event): RedirectResponse
+    {
+        $event->update(['is_featured' => ! $event->is_featured]);
+
+        $state = $event->is_featured ? 'featured in hero & header banner' : 'removed from featured spotlight';
+
+        return back()->with('success', "Event '{$event->title}' {$state}.");
+    }
+
+    public function duplicate(Event $event): RedirectResponse
+    {
+        $event->load('ticketTypes');
+
+        $copy = Event::create([
+            'title' => $event->title.' (Copy)',
+            'slug' => Event::generateUniqueSlug($event->title.' Copy'),
+            'summary' => $event->summary,
+            'description' => $event->description,
+            'venue' => $event->venue,
+            'city' => $event->city,
+            'cover_image' => $event->cover_image,
+            'flyer_image' => $event->flyer_image,
+            'starts_at' => now()->addDays(14)->setTime(18, 0),
+            'ends_at' => $event->ends_at ? now()->addDays(14)->setTime(22, 0) : null,
+            'currency' => $event->currency,
+            'is_published' => false,
+            'is_featured' => false,
+            'created_by' => auth()->id(),
+        ]);
+
+        foreach ($event->ticketTypes as $tier) {
+            $copy->ticketTypes()->create([
+                'name' => $tier->name,
+                'description' => $tier->description,
+                'price' => $tier->price,
+                'quantity_available' => $tier->quantity_available,
+                'quantity_sold' => 0,
+                'is_active' => $tier->is_active,
+                'display_order' => $tier->display_order,
+            ]);
+        }
+
+        return redirect()->route('admin.events.edit', $copy)
+            ->with('success', "Event duplicated as draft '{$copy->title}'. Update its dates and publish when ready.");
     }
 
     public function destroy(Event $event): RedirectResponse

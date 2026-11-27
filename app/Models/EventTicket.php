@@ -15,6 +15,7 @@ class EventTicket extends Model
         'event_ticket_order_id',
         'event_id',
         'event_ticket_type_id',
+        'user_id',
         'ticket_code',
         'access_token',
         'attendee_name',
@@ -50,6 +51,11 @@ class EventTicket extends Model
     public function ticketType(): BelongsTo
     {
         return $this->belongsTo(EventTicketType::class, 'event_ticket_type_id');
+    }
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
     }
 
     public function checkedInBy(): BelongsTo

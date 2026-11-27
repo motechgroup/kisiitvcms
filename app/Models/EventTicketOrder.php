@@ -15,6 +15,7 @@ class EventTicketOrder extends Model
     protected $fillable = [
         'event_id',
         'event_ticket_type_id',
+        'user_id',
         'payment_gateway_id',
         'gateway_code',
         'order_reference',
@@ -59,6 +60,11 @@ class EventTicketOrder extends Model
     public function ticketType(): BelongsTo
     {
         return $this->belongsTo(EventTicketType::class, 'event_ticket_type_id');
+    }
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
     }
 
     public function paymentGateway(): BelongsTo

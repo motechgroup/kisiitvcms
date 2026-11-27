@@ -342,4 +342,99 @@ class EventTicketingTest extends TestCase
         $this->assertDatabaseMissing('categories', ['id' => $catB->id]);
         $this->assertSame($catA->id, $article->fresh()->category_id);
     }
+
+    public function test_phone_only_purchase_auto_creates_and_remembers_user_and_admin_sees_event_analytics(): void
+    {
+        Mail::fake();
+        config(['services.sms.driver' => 'log']);
+
+        $upcoming = Event::create([
+            'title' => 'Kisii Tech Summit 2026',
+            'slug' => 'kisii-tech-summit-2026',
+            'venue' => 'Kisii University',
+            'city' => 'Kisii',
+            'starts_at' => now()->addDays(7),
+            'currency' => 'KES',
+            'is_published' => true,
+        ]);
+
+        $freeTier = $upcoming->ticketTypes()->create([
+            'name' => 'Student Pass',
+            'price' => 0,
+            'quantity_available' => 100,
+            'is_active' => true,
+        ]);
+
+        $past = Event::create([
+            'title' => 'Kisii Archive Gala 2025',
+            'slug' => 'kisii-archive-gala-2025',
+            'venue' => 'Kisii Hotel',
+            'city' => 'Kisii',
+            'starts_at' => now()->subDays(30),
+            'currency' => 'KES',
+            'is_published' => true,
+        ]);
+
+        // 1. Public Upcoming vs Past tabs
+        $this->get(route('events.index', ['tab' => 'upcoming']))
+            ->assertStatus(200)
+            ->assertSee('Kisii Tech Summit 2026');
+
+        $this->get(route('events.index', ['tab' => 'past']))
+            ->assertStatus(200)
+            ->assertSee('Kisii Archive Gala 2025')
+            ->assertDontSee('Kisii Tech Summit 2026');
+
+        // 2. Phone-only purchase (no email, no signup) auto-creates User account
+        $this->post(route('events.purchase', $upcoming->slug), [
+            'event_ticket_type_id' => $freeTier->id,
+            'quantity' => 1,
+            'buyer_name' => 'Moraa Nyangena',
+            'buyer_phone' => '0799887766',
+        ])->assertRedirect();
+
+        $createdUser = User::where('phone', '+254799887766')->first();
+        $this->assertNotNull($createdUser);
+        $this->assertSame('Moraa Nyangena', $createdUser->name);
+
+        $order = EventTicketOrder::where('event_id', $upcoming->id)->firstOrFail();
+        $this->assertSame($createdUser->id, $order->user_id);
+
+        // 3. Returning buyer lookup by phone remembers name
+        $this->getJson(route('events.lookup-attendee', ['phone' => '0799887766']))
+            ->assertStatus(200)
+            ->assertJson([
+                'found' => true,
+                'name' => 'Moraa Nyangena',
+            ]);
+
+        // 4. Email-only purchase (no phone) also works
+        $this->post(route('events.purchase', $upcoming->slug), [
+            'event_ticket_type_id' => $freeTier->id,
+            'quantity' => 1,
+            'buyer_email' => 'emailonly@example.com',
+        ])->assertRedirect();
+
+        Mail::assertSent(EventTicketMail::class, fn (EventTicketMail $m) => $m->hasTo('emailonly@example.com'));
+
+        // 5. Admin single-event analytics page & dashboard filters & duplicate
+        $this->actingAs($this->superAdmin)
+            ->get(route('admin.events.show', $upcoming))
+            ->assertStatus(200)
+            ->assertSee('Kisii Tech Summit 2026')
+            ->assertSee('Moraa Nyangena')
+            ->assertSee('Student Pass');
+
+        $this->actingAs($this->superAdmin)
+            ->get(route('admin.events.index', ['timeline' => 'past']))
+            ->assertStatus(200)
+            ->assertSee('Kisii Archive Gala 2025')
+            ->assertDontSee('Kisii Tech Summit 2026');
+
+        $this->actingAs($this->superAdmin)
+            ->post(route('admin.events.duplicate', $upcoming))
+            ->assertRedirect();
+
+        $this->assertTrue(Event::where('title', 'Kisii Tech Summit 2026 (Copy)')->exists());
+    }
 }
