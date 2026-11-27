@@ -42,4 +42,13 @@ return [
         'callback_url' => env('PAYSTACK_CALLBACK_URL', 'https://kisiitv.co.ke/donations/callback/paystack'),
     ],
 
+    'sms' => [
+        'driver' => env('SMS_DRIVER', 'log'),
+        'sender_id' => env('SMS_SENDER_ID', 'KISIITV'),
+        'africastalking_username' => env('AFRICASTALKING_USERNAME'),
+        'africastalking_api_key' => env('AFRICASTALKING_API_KEY'),
+        'webhook_url' => env('SMS_WEBHOOK_URL'),
+        'webhook_api_key' => env('SMS_WEBHOOK_API_KEY'),
+    ],
+
 ];

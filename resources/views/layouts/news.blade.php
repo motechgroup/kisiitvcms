@@ -406,6 +406,10 @@
                             Home
                         </a>
 
+                        <a href="{{ route('events.index') }}" class="px-2.5 lg:px-3 py-2.5 text-xs font-bold uppercase tracking-wider text-white hover:bg-[#d9252a] transition whitespace-nowrap {{ request()->is('events*') ? 'bg-[#d9252a]' : '' }}">
+                            Events
+                        </a>
+
                         @foreach($primaryNavCategories as $cat)
                             <div class="relative group" x-data="{ open: false }" @mouseenter="open = true" @mouseleave="open = false">
                                 <a href="{{ route('categories.show', $cat->slug) }}" class="px-2 lg:px-2.5 py-2.5 text-xs font-bold uppercase tracking-wider text-white hover:bg-[#0f3d99] transition flex items-center space-x-1 whitespace-nowrap">
@@ -482,6 +486,10 @@
                         <a href="{{ route('home') }}"
                             class="px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider whitespace-nowrap shrink-0 transition {{ request()->is('/') ? 'bg-[#d9252a] text-white shadow-xs' : 'bg-white/10 text-white hover:bg-white/20' }}">
                             Home
+                        </a>
+                        <a href="{{ route('events.index') }}"
+                            class="px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider whitespace-nowrap shrink-0 transition {{ request()->is('events*') ? 'bg-[#d9252a] text-white shadow-xs' : 'bg-emerald-500/25 text-emerald-200 hover:bg-emerald-500/40' }}">
+                            Events
                         </a>
                         @foreach($navCategories as $cat)
                             <a href="{{ route('categories.show', $cat->slug) }}"

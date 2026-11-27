@@ -5,6 +5,7 @@ use App\Http\Controllers\Admin\CategoryController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\DonationCampaignController as AdminCampaignController;
 use App\Http\Controllers\Admin\DonationController as AdminDonationController;
+use App\Http\Controllers\Admin\EventController as AdminEventController;
 use App\Http\Controllers\Admin\LiveStreamController as AdminLiveStreamController;
 use App\Http\Controllers\Admin\PaymentGatewayController;
 use App\Http\Controllers\Admin\ProfileController;
@@ -14,6 +15,7 @@ use App\Http\Controllers\ArticleController;
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\DonationCampaignController;
 use App\Http\Controllers\DonationController;
+use App\Http\Controllers\EventController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\LiveStreamController;
 use App\Http\Controllers\PublicCategoryController;
@@ -49,6 +51,15 @@ Route::get('/donations/{donation}/status', [DonationController::class, 'status']
 Route::get('/donations/callback/{gateway}', [DonationController::class, 'callback'])->name('donations.callback');
 Route::post('/donations/{donation}/complete', [DonationController::class, 'complete'])->name('donations.complete');
 Route::any('/donations/webhook/{gateway}', [DonationController::class, 'webhook'])->name('donations.webhook');
+
+// Public Events & Digital Ticketing Routes
+Route::get('/events', [EventController::class, 'index'])->name('events.index');
+Route::get('/events/{event:slug}', [EventController::class, 'show'])->name('events.show');
+Route::post('/events/{event:slug}/purchase', [EventController::class, 'purchase'])->name('events.purchase');
+Route::get('/events/checkout/callback/{gateway}', [EventController::class, 'callback'])->name('events.checkout.callback');
+Route::get('/events/checkout/{order}', [EventController::class, 'checkout'])->name('events.checkout');
+Route::post('/events/checkout/{order}/complete', [EventController::class, 'complete'])->name('events.checkout.complete');
+Route::get('/tickets/{ticket}', [EventController::class, 'showTicket'])->name('tickets.show');
 
 // Guest Authentication Routes
 Route::middleware('guest')->group(function () {
@@ -128,6 +139,14 @@ Route::middleware('auth')->group(function () {
         Route::patch('/campaigns/{campaign}/toggle-active', [AdminCampaignController::class, 'toggleActive'])->name('campaigns.toggle-active');
         Route::patch('/campaigns/{campaign}/toggle-featured', [AdminCampaignController::class, 'toggleFeatured'])->name('campaigns.toggle-featured');
         Route::resource('campaigns', AdminCampaignController::class);
+
+        // Events & Digital Ticketing Management
+        Route::patch('/events/{event}/toggle-published', [AdminEventController::class, 'togglePublished'])->name('events.toggle-published');
+        Route::get('/events/{event}/tickets', [AdminEventController::class, 'tickets'])->name('events.tickets');
+        Route::patch('/events/tickets/{ticket}/check-in', [AdminEventController::class, 'checkInTicket'])->name('events.tickets.check-in');
+        Route::patch('/events/orders/{order}/mark-paid', [AdminEventController::class, 'markOrderPaid'])->name('events.orders.mark-paid');
+        Route::post('/events/orders/{order}/resend', [AdminEventController::class, 'resendOrderNotifications'])->name('events.orders.resend');
+        Route::resource('events', AdminEventController::class)->except(['show']);
 
         // Staff Profile Settings & Account Information
         Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');

@@ -112,6 +112,53 @@ class PaymentGatewayService
     }
 
     /**
+     * Initialize Paystack hosted checkout for any generic payment (e.g., event tickets).
+     *
+     * @param  array<string, mixed>  $metadata
+     * @return array{url: ?string, error: ?string}
+     */
+    public function initializePaystackPayment(
+        PaymentGateway $gateway,
+        float $amount,
+        string $email,
+        string $reference,
+        string $callbackUrl,
+        array $metadata = []
+    ): array {
+        $secretKey = trim((string) $gateway->secret_key);
+
+        if ($secretKey === '') {
+            return ['url' => null, 'error' => null];
+        }
+
+        try {
+            $response = Http::timeout(15)
+                ->withToken($secretKey)
+                ->post('https://api.paystack.co/transaction/initialize', [
+                    'email' => $email,
+                    'amount' => (int) round($amount * 100),
+                    'currency' => $gateway->currency ?: 'KES',
+                    'reference' => $reference,
+                    'callback_url' => $callbackUrl,
+                    'metadata' => $metadata,
+                ]);
+
+            if ($response->successful() && $response->json('data.authorization_url')) {
+                return ['url' => $response->json('data.authorization_url'), 'error' => null];
+            }
+
+            $error = $response->json('message') ?? 'Paystack could not initialize checkout.';
+            Log::warning('Paystack ticket initialization failed', ['body' => $response->json()]);
+
+            return ['url' => null, 'error' => $error];
+        } catch (\Throwable $e) {
+            Log::error('Paystack ticket initialization exception', ['error' => $e->getMessage()]);
+
+            return ['url' => null, 'error' => 'Could not connect to Paystack. Please try again.'];
+        }
+    }
+
+    /**
      * Verify Paystack transaction by reference.
      */
     public function verifyPaystack(string $reference, PaymentGateway $gateway): bool
