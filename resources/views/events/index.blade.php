@@ -12,10 +12,6 @@
         <div class="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-8 sm:py-12">
             <div class="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
                 <div class="max-w-2xl space-y-2.5">
-                    <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-[11px] font-bold uppercase tracking-widest">
-                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                        <span>Kisii TV Live Experiences</span>
-                    </div>
                     <h1 class="text-3xl sm:text-5xl font-black font-headline tracking-tight text-white leading-tight">
                         Events &amp; <span class="text-emerald-400">Digital Tickets</span>
                     </h1>
