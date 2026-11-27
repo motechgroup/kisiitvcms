@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class Event extends Model
@@ -21,6 +23,7 @@ class Event extends Model
         'venue',
         'city',
         'cover_image',
+        'flyer_image',
         'starts_at',
         'ends_at',
         'currency',
@@ -28,6 +31,59 @@ class Event extends Model
         'is_featured',
         'created_by',
     ];
+
+    protected static function booted(): void
+    {
+        static::saved(fn () => Cache::forget('active_header_event_v1'));
+        static::deleted(fn () => Cache::forget('active_header_event_v1'));
+    }
+
+    /**
+     * Cached summary of the active featured/upcoming event for header nav & banner
+     * (stored as a plain array for Laravel serializable_classes = false compatibility).
+     *
+     * @return array<string, mixed>|null
+     */
+    public static function cachedHeaderEvent(): ?array
+    {
+        try {
+            if (! Schema::hasTable('events')) {
+                return null;
+            }
+        } catch (\Throwable) {
+            return null;
+        }
+
+        $data = Cache::remember('active_header_event_v1', 180, function (): array {
+            $event = self::published()
+                ->upcoming()
+                ->with('activeTicketTypes')
+                ->orderByDesc('is_featured')
+                ->orderBy('starts_at')
+                ->first();
+
+            if (! $event) {
+                return ['exists' => false];
+            }
+
+            $minPrice = $event->startingPrice();
+
+            return [
+                'exists' => true,
+                'title' => $event->title,
+                'slug' => $event->slug,
+                'venue' => $event->venue,
+                'city' => $event->city,
+                'date_short' => $event->starts_at->timezone('Africa/Nairobi')->format('D, M j · g:i A'),
+                'currency' => $event->currency ?: 'KES',
+                'starting_price' => $minPrice,
+                'cover_image_url' => $event->coverImageUrl(),
+                'flyer_image_url' => $event->flyerImageUrl(),
+            ];
+        });
+
+        return ($data['exists'] ?? false) ? $data : null;
+    }
 
     protected function casts(): array
     {
@@ -101,7 +157,20 @@ class Event extends Model
             return $this->cover_image;
         }
 
-        return asset($this->cover_image);
+        return asset(ltrim($this->cover_image, '/'));
+    }
+
+    public function flyerImageUrl(): ?string
+    {
+        if (! $this->flyer_image) {
+            return null;
+        }
+
+        if (str_starts_with($this->flyer_image, 'http://') || str_starts_with($this->flyer_image, 'https://')) {
+            return $this->flyer_image;
+        }
+
+        return asset(ltrim($this->flyer_image, '/'));
     }
 
     public static function generateUniqueSlug(string $title, ?int $ignoreId = null): string

@@ -183,6 +183,7 @@
 @php
     $globalActiveGateways = \App\Models\PaymentGateway::cachedActivePublic();
     $globalDefaultGateway = $globalActiveGateways->first()?->code ?? 'paystack';
+    $headerActiveEvent = \App\Models\Event::cachedHeaderEvent();
 @endphp
 <body class="min-h-full font-sans-body antialiased text-slate-900 bg-white flex flex-col justify-between selection:bg-[#d9252a] selection:text-white" x-data="{ mobileMenuOpen: false, searchOpen: false, globalDonateOpen: false, globalAmount: '500', globalGateway: '{{ $globalDefaultGateway }}' }" @open-donate-modal.window="globalDonateOpen = true; if ($event.detail && $event.detail.amount) globalAmount = $event.detail.amount; if ($event.detail && $event.detail.gateway) globalGateway = $event.detail.gateway;">
 
@@ -406,9 +407,12 @@
                             Home
                         </a>
 
-                        <a href="{{ route('events.index') }}" class="px-2.5 lg:px-3 py-2.5 text-xs font-bold uppercase tracking-wider text-white hover:bg-[#d9252a] transition whitespace-nowrap {{ request()->is('events*') ? 'bg-[#d9252a]' : '' }}">
-                            Events
-                        </a>
+                        @if($headerActiveEvent)
+                            <a href="{{ route('events.index') }}" class="px-2.5 lg:px-3 py-2.5 text-xs font-bold uppercase tracking-wider text-white hover:bg-[#d9252a] transition whitespace-nowrap flex items-center gap-1.5 {{ request()->is('events*') ? 'bg-[#d9252a]' : '' }}">
+                                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                                <span>Events</span>
+                            </a>
+                        @endif
 
                         @foreach($primaryNavCategories as $cat)
                             <div class="relative group" x-data="{ open: false }" @mouseenter="open = true" @mouseleave="open = false">
@@ -487,10 +491,13 @@
                             class="px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider whitespace-nowrap shrink-0 transition {{ request()->is('/') ? 'bg-[#d9252a] text-white shadow-xs' : 'bg-white/10 text-white hover:bg-white/20' }}">
                             Home
                         </a>
-                        <a href="{{ route('events.index') }}"
-                            class="px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider whitespace-nowrap shrink-0 transition {{ request()->is('events*') ? 'bg-[#d9252a] text-white shadow-xs' : 'bg-emerald-500/25 text-emerald-200 hover:bg-emerald-500/40' }}">
-                            Events
-                        </a>
+                        @if($headerActiveEvent)
+                            <a href="{{ route('events.index') }}"
+                                class="px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider whitespace-nowrap shrink-0 transition flex items-center gap-1 {{ request()->is('events*') ? 'bg-[#d9252a] text-white shadow-xs' : 'bg-emerald-500/25 text-emerald-200 hover:bg-emerald-500/40' }}">
+                                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                                <span>Events</span>
+                            </a>
+                        @endif
                         @foreach($navCategories as $cat)
                             <a href="{{ route('categories.show', $cat->slug) }}"
                                 class="px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider whitespace-nowrap shrink-0 transition {{ request()->is('category/'.$cat->slug) ? 'bg-[#d9252a] text-white shadow-xs' : 'bg-white/10 text-white hover:bg-white/20' }}">
@@ -521,6 +528,47 @@
                 </div>
             </div>
         </nav>
+
+        <!-- Auto-Generated Active Event Promo Banner in Header -->
+        @if($headerActiveEvent && ! request()->is('events/'.$headerActiveEvent['slug']))
+            <div class="bg-gradient-to-r from-[#0a1c3d] via-[#102b5e] to-[#0a1c3d] text-white border-b border-emerald-500/30">
+                <div class="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-2.5 flex items-center justify-between gap-3">
+                    <a href="{{ route('events.show', $headerActiveEvent['slug']) }}" class="flex items-center gap-3 min-w-0 group flex-1">
+                        <img src="{{ $headerActiveEvent['flyer_image_url'] ?: $headerActiveEvent['cover_image_url'] }}"
+                            alt="{{ $headerActiveEvent['title'] }}"
+                            class="w-11 h-11 sm:w-12 sm:h-12 rounded-lg object-cover border border-white/20 shrink-0 shadow-sm">
+                        <div class="min-w-0">
+                            <div class="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] font-black uppercase tracking-wider">
+                                <span class="text-emerald-400 flex items-center gap-1">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                                    Upcoming Event
+                                </span>
+                                <span class="text-slate-400">&bull;</span>
+                                <span class="text-blue-200">{{ $headerActiveEvent['date_short'] }}</span>
+                            </div>
+                            <div class="text-xs sm:text-sm font-black font-headline text-white group-hover:text-emerald-300 transition truncate mt-0.5">
+                                {{ $headerActiveEvent['title'] }}
+                            </div>
+                            <div class="text-[10px] sm:text-[11px] text-slate-300 truncate">
+                                {{ $headerActiveEvent['venue'] }}{{ $headerActiveEvent['city'] ? ', '.$headerActiveEvent['city'] : '' }}
+                                @if($headerActiveEvent['starting_price'] !== null)
+                                    &bull;
+                                    <span class="text-emerald-300 font-bold">
+                                        {{ (float) $headerActiveEvent['starting_price'] > 0 ? 'From '.$headerActiveEvent['currency'].' '.number_format((float) $headerActiveEvent['starting_price'], 0) : 'Free Entry' }}
+                                    </span>
+                                @endif
+                            </div>
+                        </div>
+                    </a>
+                    <div class="flex items-center gap-2 shrink-0">
+                        <a href="{{ route('events.show', $headerActiveEvent['slug']) }}"
+                            class="px-3 sm:px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-[10px] sm:text-xs uppercase tracking-wider shadow transition whitespace-nowrap">
+                            Get Tickets &rarr;
+                        </a>
+                    </div>
+                </div>
+            </div>
+        @endif
 
         <!-- Dropdown Search Drawer -->
         <div x-show="searchOpen" x-cloak style="display: none;" x-transition class="bg-slate-900 border-b border-slate-700 py-4 px-4">

@@ -83,6 +83,20 @@
                                 {{ $event->description }}
                             </div>
                         @endif
+
+                        @if($flyerUrl = $event->flyerImageUrl())
+                            <div class="pt-4 border-t border-slate-800 space-y-2.5">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Official Event Flyer</span>
+                                    <a href="{{ $flyerUrl }}" target="_blank" rel="noopener" class="text-[11px] font-bold text-emerald-400 hover:underline">
+                                        View Full Size &nearr;
+                                    </a>
+                                </div>
+                                <a href="{{ $flyerUrl }}" target="_blank" rel="noopener" class="block overflow-hidden rounded-xl border border-slate-800 bg-slate-950">
+                                    <img src="{{ $flyerUrl }}" alt="{{ $event->title }} Flyer" class="w-full max-h-[520px] object-contain mx-auto">
+                                </a>
+                            </div>
+                        @endif
                     </div>
                 </div>
             </div>

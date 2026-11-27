@@ -88,17 +88,24 @@
                     class="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:border-[#1b52bc]">
             </div>
 
-            <div>
-                <label class="block font-bold uppercase text-slate-700 mb-1">Cover Banner Upload</label>
-                <input type="file" name="cover_image_file" accept="image/*"
-                    class="w-full border border-slate-300 rounded-lg px-3 py-1.5 bg-slate-50">
+            <div class="bg-slate-50 border border-slate-200 rounded-xl p-3.5 space-y-2">
+                <label class="block font-bold uppercase text-slate-700">Event Cover Banner (Upload)</label>
+                @if($isEdit && $event->cover_image)
+                    <img src="{{ $event->coverImageUrl() }}" alt="Current Cover Banner" class="w-full h-24 object-cover rounded-lg border border-slate-200">
+                @endif
+                <input type="file" name="cover_image_file" accept="image/jpeg,image/png,image/webp"
+                    class="w-full text-xs text-slate-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-[#1b52bc] file:text-white hover:file:bg-blue-800 cursor-pointer">
+                <p class="text-[10px] text-slate-500">Landscape banner (16:9 recommended, max 5MB). Used on hero &amp; header banner.</p>
             </div>
 
-            <div>
-                <label class="block font-bold uppercase text-slate-700 mb-1">Or Cover Image URL</label>
-                <input type="url" name="cover_image_url" value="{{ old('cover_image_url', str_starts_with((string) $event->cover_image, 'http') ? $event->cover_image : '') }}"
-                    placeholder="https://..."
-                    class="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:border-[#1b52bc]">
+            <div class="bg-slate-50 border border-slate-200 rounded-xl p-3.5 space-y-2">
+                <label class="block font-bold uppercase text-slate-700">Event Flyer / Poster (Upload)</label>
+                @if($isEdit && $event->flyer_image)
+                    <img src="{{ $event->flyerImageUrl() }}" alt="Current Event Flyer" class="h-24 w-auto object-contain rounded-lg border border-slate-200 bg-white">
+                @endif
+                <input type="file" name="flyer_image_file" accept="image/jpeg,image/png,image/webp"
+                    class="w-full text-xs text-slate-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-emerald-600 file:text-white hover:file:bg-emerald-700 cursor-pointer">
+                <p class="text-[10px] text-slate-500">Promotional poster/flyer (portrait or square, max 5MB). Displayed on event page.</p>
             </div>
 
             <div class="md:col-span-2">

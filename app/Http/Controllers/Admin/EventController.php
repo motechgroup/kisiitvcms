@@ -9,6 +9,7 @@ use App\Models\EventTicketOrder;
 use App\Services\TicketFulfillmentService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\File;
 use Illuminate\View\View;
 
 class EventController extends Controller
@@ -50,7 +51,8 @@ class EventController extends Controller
     {
         $validated = $this->validateEvent($request);
 
-        $coverImage = $this->resolveCoverImage($request);
+        $coverImage = $this->uploadEventImage($request, 'cover_image_file', 'cover');
+        $flyerImage = $this->uploadEventImage($request, 'flyer_image_file', 'flyer');
 
         $event = Event::create([
             'title' => $validated['title'],
@@ -60,6 +62,7 @@ class EventController extends Controller
             'venue' => $validated['venue'],
             'city' => $validated['city'] ?? null,
             'cover_image' => $coverImage,
+            'flyer_image' => $flyerImage,
             'starts_at' => $validated['starts_at'],
             'ends_at' => $validated['ends_at'] ?? null,
             'currency' => strtoupper($validated['currency'] ?? 'KES'),
@@ -88,7 +91,8 @@ class EventController extends Controller
     {
         $validated = $this->validateEvent($request);
 
-        $coverImage = $this->resolveCoverImage($request, $event->cover_image);
+        $coverImage = $this->uploadEventImage($request, 'cover_image_file', 'cover', $event->cover_image);
+        $flyerImage = $this->uploadEventImage($request, 'flyer_image_file', 'flyer', $event->flyer_image);
 
         $event->update([
             'title' => $validated['title'],
@@ -97,6 +101,7 @@ class EventController extends Controller
             'venue' => $validated['venue'],
             'city' => $validated['city'] ?? null,
             'cover_image' => $coverImage,
+            'flyer_image' => $flyerImage,
             'starts_at' => $validated['starts_at'],
             'ends_at' => $validated['ends_at'] ?? null,
             'currency' => strtoupper($validated['currency'] ?? 'KES'),
@@ -227,8 +232,8 @@ class EventController extends Controller
             'description' => ['nullable', 'string', 'max:10000'],
             'venue' => ['required', 'string', 'max:200'],
             'city' => ['nullable', 'string', 'max:120'],
-            'cover_image_url' => ['nullable', 'url', 'max:500'],
-            'cover_image_file' => ['nullable', 'image', 'max:4096'],
+            'cover_image_file' => ['nullable', 'image', 'mimes:jpeg,png,jpg,webp', 'max:5120'],
+            'flyer_image_file' => ['nullable', 'image', 'mimes:jpeg,png,jpg,webp', 'max:5120'],
             'starts_at' => ['required', 'date'],
             'ends_at' => ['nullable', 'date', 'after_or_equal:starts_at'],
             'currency' => ['nullable', 'string', 'max:10'],
@@ -243,19 +248,22 @@ class EventController extends Controller
         ]);
     }
 
-    protected function resolveCoverImage(Request $request, ?string $existing = null): ?string
+    protected function uploadEventImage(Request $request, string $field, string $prefix, ?string $existing = null): ?string
     {
-        if ($request->hasFile('cover_image_file')) {
-            $path = $request->file('cover_image_file')->store('events', 'public');
-
-            return 'storage/'.$path;
+        if (! $request->hasFile($field)) {
+            return $existing;
         }
 
-        if ($request->filled('cover_image_url')) {
-            return trim((string) $request->input('cover_image_url'));
+        $destinationPath = public_path('uploads/events');
+        if (! File::isDirectory($destinationPath)) {
+            File::makeDirectory($destinationPath, 0755, true);
         }
 
-        return $existing;
+        $file = $request->file($field);
+        $fileName = $prefix.'_'.time().'_'.bin2hex(random_bytes(4)).'.'.$file->getClientOriginalExtension();
+        $file->move($destinationPath, $fileName);
+
+        return '/uploads/events/'.$fileName;
     }
 
     /**

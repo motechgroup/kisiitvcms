@@ -250,4 +250,39 @@ class EventTicketingTest extends TestCase
                 && $request['message'] === 'Hello from Kisii TV Test!';
         });
     }
+
+    public function test_header_events_menu_and_generated_banner_appear_only_when_an_active_event_exists(): void
+    {
+        // With no active events, the header banner and Events menu do not show
+        $this->get('/')
+            ->assertStatus(200)
+            ->assertDontSee('Upcoming Event')
+            ->assertDontSee('Get Tickets');
+
+        // Create an active upcoming event
+        $event = Event::create([
+            'title' => 'Kisii Live Music Night',
+            'slug' => 'kisii-live-music-night',
+            'venue' => 'Gusii Stadium',
+            'city' => 'Kisii',
+            'starts_at' => now()->addDays(4),
+            'currency' => 'KES',
+            'is_published' => true,
+            'is_featured' => true,
+        ]);
+
+        $event->ticketTypes()->create([
+            'name' => 'Regular',
+            'price' => 500,
+            'is_active' => true,
+        ]);
+
+        // Now the homepage header shows the Events menu AND the auto-generated Event Banner
+        $this->get('/')
+            ->assertStatus(200)
+            ->assertSee('Upcoming Event')
+            ->assertSee('Kisii Live Music Night')
+            ->assertSee('Get Tickets')
+            ->assertSee(route('events.index'));
+    }
 }
