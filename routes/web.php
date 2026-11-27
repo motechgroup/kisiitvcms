@@ -113,6 +113,7 @@ Route::middleware('auth')->group(function () {
         // Site Settings, Branding & Theme Customizer
         Route::get('/settings', [SettingController::class, 'index'])->name('settings.index');
         Route::post('/settings', [SettingController::class, 'update'])->name('settings.update');
+        Route::post('/settings/test-sms', [SettingController::class, 'testSms'])->name('settings.test-sms');
 
         // Live Streaming Studio Management (YouTube, Facebook, Twitch)
         Route::get('/streams', [AdminLiveStreamController::class, 'index'])->name('streams.index');

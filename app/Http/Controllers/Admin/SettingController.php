@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\SiteSetting;
+use App\Services\SmsService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\File;
@@ -69,6 +70,13 @@ class SettingController extends Controller
             'adsense_sidebar_code' => SiteSetting::get('adsense_sidebar_code', ''),
             'adsense_in_article_code' => SiteSetting::get('adsense_in_article_code', ''),
             'adsense_ads_txt' => SiteSetting::get('adsense_ads_txt', ''),
+
+            // SMS Gateway (TextSMS Kenya / Africa's Talking / Webhook)
+            'sms_driver' => SiteSetting::get('sms_driver', config('services.sms.driver', 'textsms')),
+            'sms_textsms_api_key' => SiteSetting::get('sms_textsms_api_key', config('services.sms.textsms_api_key', '3dd298222c1ce227857fda7b42e97377')),
+            'sms_textsms_partner_id' => SiteSetting::get('sms_textsms_partner_id', config('services.sms.textsms_partner_id', '14712')),
+            'sms_textsms_shortcode' => SiteSetting::get('sms_textsms_shortcode', config('services.sms.textsms_shortcode', 'TextSMS')),
+            'sms_textsms_host' => SiteSetting::get('sms_textsms_host', config('services.sms.textsms_host', 'sms.textsms.co.ke')),
         ];
 
         return view('admin.settings.index', compact('settings'));
@@ -134,6 +142,13 @@ class SettingController extends Controller
             'adsense_sidebar_code' => 'nullable|string|max:5000',
             'adsense_in_article_code' => 'nullable|string|max:5000',
             'adsense_ads_txt' => 'nullable|string|max:5000',
+
+            // SMS Gateway
+            'sms_driver' => 'nullable|string|in:textsms,africastalking,webhook,log',
+            'sms_textsms_api_key' => 'nullable|string|max:255',
+            'sms_textsms_partner_id' => 'nullable|string|max:100',
+            'sms_textsms_shortcode' => 'nullable|string|max:50',
+            'sms_textsms_host' => 'nullable|string|max:150',
         ]);
 
         // Handle Site Logo upload or URL
@@ -193,6 +208,11 @@ class SettingController extends Controller
             'adsense_sidebar_code' => ['text', 'monetization'],
             'adsense_in_article_code' => ['text', 'monetization'],
             'adsense_ads_txt' => ['text', 'monetization'],
+            'sms_driver' => ['string', 'sms'],
+            'sms_textsms_api_key' => ['string', 'sms'],
+            'sms_textsms_partner_id' => ['string', 'sms'],
+            'sms_textsms_shortcode' => ['string', 'sms'],
+            'sms_textsms_host' => ['string', 'sms'],
         ];
 
         foreach ($keysToSave as $key => [$type, $group]) {
@@ -213,6 +233,30 @@ class SettingController extends Controller
         $redirectParams = ($tab && $tab !== 'branding') ? ['tab' => $tab] : [];
 
         return redirect()->route('admin.settings.index', $redirectParams)
-            ->with('success', 'Site settings, AdSense, Google Analytics, and branding updated successfully!');
+            ->with('success', 'Site settings, AdSense, Google Analytics, SMS gateway, and branding updated successfully!');
+    }
+
+    /**
+     * Send a live test SMS from the admin backend to verify SMS gateway connectivity.
+     */
+    public function testSms(Request $request, SmsService $smsService): RedirectResponse
+    {
+        $validated = $request->validate([
+            'test_phone' => ['required', 'string', 'max:40'],
+            'test_message' => ['nullable', 'string', 'max:320'],
+        ]);
+
+        $message = trim((string) ($validated['test_message'] ?? ''))
+            ?: 'Kisii TV SMS Gateway Test: Your TextSMS integration is working properly!';
+
+        $result = $smsService->sendWithDetails($validated['test_phone'], $message);
+
+        if ($result['ok']) {
+            return redirect()->route('admin.settings.index', ['tab' => 'sms'])
+                ->with('success', "[{$result['provider']}] {$result['message']}");
+        }
+
+        return redirect()->route('admin.settings.index', ['tab' => 'sms'])
+            ->with('error', "[{$result['provider']}] {$result['message']}");
     }
 }

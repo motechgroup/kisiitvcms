@@ -217,4 +217,37 @@ class EventTicketingTest extends TestCase
             ->patch(route('admin.events.tickets.check-in', $ticket))
             ->assertSessionHas('error');
     }
+
+    public function test_admin_can_configure_and_test_textsms_kenya_gateway_from_backend(): void
+    {
+        Http::fake([
+            'https://sms.textsms.co.ke/api/services/sendsms/*' => Http::response([
+                'responses' => [
+                    [
+                        'response-code' => 200,
+                        'response-description' => 'Success',
+                        'mobile' => 254712345678,
+                        'messageid' => 987654321,
+                    ],
+                ],
+            ], 200),
+        ]);
+
+        $response = $this->actingAs($this->superAdmin)->post(route('admin.settings.test-sms'), [
+            'test_phone' => '0712345678',
+            'test_message' => 'Hello from Kisii TV Test!',
+        ]);
+
+        $response->assertRedirect(route('admin.settings.index', ['tab' => 'sms']));
+        $response->assertSessionHas('success');
+
+        Http::assertSent(function ($request) {
+            return $request->url() === 'https://sms.textsms.co.ke/api/services/sendsms/'
+                && $request['apikey'] === '3dd298222c1ce227857fda7b42e97377'
+                && $request['partnerID'] === '14712'
+                && $request['shortcode'] === 'TextSMS'
+                && $request['mobile'] === '254712345678'
+                && $request['message'] === 'Hello from Kisii TV Test!';
+        });
+    }
 }

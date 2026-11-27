@@ -43,8 +43,12 @@ return [
     ],
 
     'sms' => [
-        'driver' => env('SMS_DRIVER', 'log'),
-        'sender_id' => env('SMS_SENDER_ID', 'KISIITV'),
+        'driver' => env('SMS_DRIVER', 'textsms'),
+        'sender_id' => env('SMS_SENDER_ID', 'TextSMS'),
+        'textsms_api_key' => env('TEXTSMS_API_KEY', '3dd298222c1ce227857fda7b42e97377'),
+        'textsms_partner_id' => env('TEXTSMS_PARTNER_ID', '14712'),
+        'textsms_shortcode' => env('TEXTSMS_SHORTCODE', 'TextSMS'),
+        'textsms_host' => env('TEXTSMS_HOST', 'sms.textsms.co.ke'),
         'africastalking_username' => env('AFRICASTALKING_USERNAME'),
         'africastalking_api_key' => env('AFRICASTALKING_API_KEY'),
         'webhook_url' => env('SMS_WEBHOOK_URL'),

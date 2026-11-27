@@ -48,6 +48,10 @@
             <span>6. AdSense &amp; Google Analytics</span>
             <span class="px-1.5 py-0.5 rounded bg-amber-400 text-slate-950 text-[9px] font-black uppercase">Ads &amp; GA4</span>
         </button>
+        <button type="button" @click="activeTab = 'sms'" :class="activeTab === 'sms' ? 'bg-[#1b52bc] text-white shadow' : 'text-slate-600 hover:text-slate-900'" class="px-4 py-2 rounded transition cursor-pointer flex items-center space-x-1.5">
+            <span>7. SMS Gateway</span>
+            <span class="px-1.5 py-0.5 rounded bg-emerald-500 text-slate-950 text-[9px] font-black uppercase">TextSMS</span>
+        </button>
     </div>
 
     <!-- Settings Form -->
@@ -497,15 +501,119 @@
             </div>
         </div>
 
+        <!-- ============================================== -->
+        <!-- TAB 7: SMS GATEWAY (TEXTSMS KENYA)             -->
+        <!-- ============================================== -->
+        <div x-show="activeTab === 'sms'" x-cloak style="display: none;" class="space-y-6" x-data="{ showSmsKey: false }">
+            <div class="border-b border-slate-200 pb-3">
+                <h3 class="text-sm font-extrabold uppercase tracking-wider text-slate-900 font-headline">SMS Gateway Configuration (Event Tickets &amp; Alerts)</h3>
+                <p class="text-xs text-slate-500 mt-0.5">Configure TextSMS (Kenya) to automatically deliver digital event ticket links via SMS immediately after purchase.</p>
+            </div>
+
+            <div class="max-w-md">
+                <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">Active SMS Provider</label>
+                <select name="sms_driver" class="w-full text-xs p-2.5 border border-slate-300 rounded bg-white focus:border-[#1b52bc] font-semibold">
+                    <option value="textsms" {{ old('sms_driver', $settings['sms_driver']) === 'textsms' ? 'selected' : '' }}>TextSMS (Kenya) — sms.textsms.co.ke</option>
+                    <option value="africastalking" {{ old('sms_driver', $settings['sms_driver']) === 'africastalking' ? 'selected' : '' }}>Africa's Talking</option>
+                    <option value="webhook" {{ old('sms_driver', $settings['sms_driver']) === 'webhook' ? 'selected' : '' }}>Custom HTTP Webhook</option>
+                    <option value="log" {{ old('sms_driver', $settings['sms_driver']) === 'log' ? 'selected' : '' }}>Log Only (Testing / No Real SMS)</option>
+                </select>
+            </div>
+
+            <div class="p-5 bg-slate-50 border border-slate-200 rounded-xl space-y-4">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h4 class="text-xs font-black uppercase tracking-wider text-slate-900">TextSMS (Kenya) Credentials</h4>
+                        <p class="text-[11px] text-slate-500">Bulk SMS API endpoint: <code class="font-mono text-slate-700">https://sms.textsms.co.ke/api/services/sendsms/</code></p>
+                    </div>
+                    <span class="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[10px] font-bold uppercase">Kenya Ready</span>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-700 mb-1">API Key</label>
+                        <div class="relative">
+                            <input :type="showSmsKey ? 'text' : 'password'" name="sms_textsms_api_key"
+                                value="{{ old('sms_textsms_api_key', $settings['sms_textsms_api_key']) }}"
+                                class="w-full text-xs font-mono p-2.5 pr-10 border border-slate-300 rounded bg-white focus:border-[#1b52bc]">
+                            <button type="button" @click="showSmsKey = !showSmsKey"
+                                class="absolute inset-y-0 right-0 px-2.5 text-slate-400 hover:text-slate-700 cursor-pointer" title="Toggle visibility">
+                                <svg x-show="!showSmsKey" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                                <svg x-show="showSmsKey" x-cloak class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/></svg>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-700 mb-1">Partner ID</label>
+                        <input type="text" name="sms_textsms_partner_id"
+                            value="{{ old('sms_textsms_partner_id', $settings['sms_textsms_partner_id']) }}"
+                            placeholder="e.g. 14712"
+                            class="w-full text-xs font-mono p-2.5 border border-slate-300 rounded bg-white focus:border-[#1b52bc]">
+                    </div>
+
+                    <div>
+                        <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-700 mb-1">Shortcode / Sender ID</label>
+                        <input type="text" name="sms_textsms_shortcode"
+                            value="{{ old('sms_textsms_shortcode', $settings['sms_textsms_shortcode']) }}"
+                            placeholder="e.g. TextSMS"
+                            class="w-full text-xs font-mono p-2.5 border border-slate-300 rounded bg-white focus:border-[#1b52bc]">
+                    </div>
+
+                    <div>
+                        <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-700 mb-1">API Host</label>
+                        <input type="text" name="sms_textsms_host"
+                            value="{{ old('sms_textsms_host', $settings['sms_textsms_host']) }}"
+                            placeholder="sms.textsms.co.ke"
+                            class="w-full text-xs font-mono p-2.5 border border-slate-300 rounded bg-white focus:border-[#1b52bc]">
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Submit Bar -->
         <div class="pt-6 border-t border-slate-200 flex items-center justify-between">
             <span class="text-xs text-slate-500">Settings take effect immediately upon saving.</span>
-            <button type="submit" class="px-6 py-2.5 bg-[#1b52bc] hover:bg-blue-800 text-white text-xs font-black uppercase tracking-wider rounded shadow transition">
+            <button type="submit" class="px-6 py-2.5 bg-[#1b52bc] hover:bg-blue-800 text-white text-xs font-black uppercase tracking-wider rounded shadow transition cursor-pointer">
                 Save All Site Settings &rarr;
             </button>
         </div>
 
     </form>
+
+    <!-- Standalone Live SMS Gateway Tester (Shown on SMS Tab) -->
+    <div x-show="activeTab === 'sms'" x-cloak style="display: none;"
+        class="bg-slate-900 text-white border border-slate-800 rounded-xl shadow-md p-6 space-y-4">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-3">
+            <div>
+                <span class="text-[10px] font-black uppercase tracking-widest text-emerald-400">Live Diagnostic Tool</span>
+                <h3 class="text-sm font-extrabold uppercase tracking-wider font-headline mt-0.5">Test SMS Gateway Delivery</h3>
+                <p class="text-xs text-slate-400 mt-0.5">Send a real test SMS right now to verify your TextSMS credentials and delivery speed. Save any changes above before testing.</p>
+            </div>
+        </div>
+
+        <form method="POST" action="{{ route('admin.settings.test-sms') }}" class="grid grid-cols-1 md:grid-cols-12 gap-3 items-end text-xs">
+            @csrf
+            <div class="md:col-span-4">
+                <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-300 mb-1">Recipient Phone Number *</label>
+                <input type="tel" name="test_phone" value="{{ old('test_phone') }}" required
+                    placeholder="e.g. 0712345678 or 254712345678"
+                    class="w-full bg-slate-950 border border-slate-700 focus:border-emerald-400 rounded-lg px-3 py-2.5 font-mono text-white focus:outline-none">
+            </div>
+            <div class="md:col-span-5">
+                <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-300 mb-1">Test Message (Optional)</label>
+                <input type="text" name="test_message"
+                    value="{{ old('test_message', 'Kisii TV SMS Gateway Test: Your TextSMS integration is live and working!') }}"
+                    class="w-full bg-slate-950 border border-slate-700 focus:border-emerald-400 rounded-lg px-3 py-2.5 text-white focus:outline-none">
+            </div>
+            <div class="md:col-span-3">
+                <button type="submit"
+                    class="w-full py-2.5 px-4 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black uppercase tracking-wider rounded-lg shadow transition cursor-pointer">
+                    Send Test SMS &rarr;
+                </button>
+            </div>
+        </form>
+    </div>
 
 </div>
 @endsection

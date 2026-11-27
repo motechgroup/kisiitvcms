@@ -15,6 +15,10 @@
             </p>
         </div>
         <div class="flex items-center gap-2 shrink-0">
+            <a href="{{ route('admin.settings.index', ['tab' => 'sms']) }}"
+                class="px-3.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 text-xs font-bold uppercase tracking-wider rounded-lg transition">
+                Test SMS Gateway
+            </a>
             <a href="{{ route('events.index') }}" target="_blank"
                 class="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold uppercase tracking-wider rounded-lg transition">
                 Public Events Page &nearr;
