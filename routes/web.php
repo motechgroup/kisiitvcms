@@ -117,6 +117,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/settings', [SettingController::class, 'index'])->name('settings.index');
         Route::post('/settings', [SettingController::class, 'update'])->name('settings.update');
         Route::post('/settings/test-sms', [SettingController::class, 'testSms'])->name('settings.test-sms');
+        Route::post('/settings/test-email', [SettingController::class, 'testEmail'])->name('settings.test-email');
 
         // Live Streaming Studio Management (YouTube, Facebook, Twitch)
         Route::get('/streams', [AdminLiveStreamController::class, 'index'])->name('streams.index');

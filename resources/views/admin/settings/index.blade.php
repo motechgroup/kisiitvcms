@@ -613,6 +613,33 @@
                 </button>
             </div>
         </form>
+
+        <!-- Test SMTP Email -->
+        <div class="pt-5 border-t border-slate-800 space-y-3">
+            <div>
+                <span class="text-[10px] font-black uppercase tracking-widest text-blue-400">Live Email Diagnostic</span>
+                <h4 class="text-sm font-extrabold uppercase tracking-wider font-headline mt-0.5">Test SMTP Email Delivery</h4>
+                <p class="text-xs text-slate-400 mt-0.5">
+                    Current Mailer: <code class="text-blue-300">{{ config('mail.default') }}</code> &bull;
+                    From: <code class="text-blue-300">{{ config('mail.from.address') }}</code>
+                </p>
+            </div>
+            <form method="POST" action="{{ route('admin.settings.test-email') }}" class="grid grid-cols-1 md:grid-cols-12 gap-3 items-end text-xs">
+                @csrf
+                <div class="md:col-span-9">
+                    <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-300 mb-1">Recipient Email Address *</label>
+                    <input type="email" name="test_email" value="{{ old('test_email', auth()->user()?->email) }}" required
+                        placeholder="you@example.com"
+                        class="w-full bg-slate-950 border border-slate-700 focus:border-blue-400 rounded-lg px-3 py-2.5 text-white focus:outline-none">
+                </div>
+                <div class="md:col-span-3">
+                    <button type="submit"
+                        class="w-full py-2.5 px-4 bg-[#1b52bc] hover:bg-blue-600 text-white font-black uppercase tracking-wider rounded-lg shadow transition cursor-pointer">
+                        Send Test Email &rarr;
+                    </button>
+                </div>
+            </form>
+        </div>
     </div>
 
 </div>

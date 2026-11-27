@@ -8,6 +8,7 @@ use App\Services\SmsService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\View\View;
 
 class SettingController extends Controller
@@ -258,5 +259,31 @@ class SettingController extends Controller
 
         return redirect()->route('admin.settings.index', ['tab' => 'sms'])
             ->with('error', "[{$result['provider']}] {$result['message']}");
+    }
+
+    /**
+     * Send a live test email from the admin backend to verify SMTP configuration.
+     */
+    public function testEmail(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'test_email' => ['required', 'email', 'max:150'],
+        ]);
+
+        try {
+            Mail::raw(
+                'Kisii TV SMTP Test: Your ticket@kisiitv.co.ke outgoing mail configuration is working properly!',
+                function ($message) use ($validated): void {
+                    $message->to($validated['test_email'])
+                        ->subject('Kisii TV SMTP Email Test — Confirmed');
+                }
+            );
+
+            return redirect()->route('admin.settings.index', ['tab' => 'sms'])
+                ->with('success', "Test email sent successfully to {$validated['test_email']} via ".config('mail.default').' ('.config('mail.from.address').').');
+        } catch (\Throwable $e) {
+            return redirect()->route('admin.settings.index', ['tab' => 'sms'])
+                ->with('error', 'SMTP Test Failed: '.$e->getMessage());
+        }
     }
 }
