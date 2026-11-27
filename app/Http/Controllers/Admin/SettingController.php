@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Mail\EventTicketMail;
 use App\Models\SiteSetting;
 use App\Services\SmsService;
 use Illuminate\Http\RedirectResponse;
@@ -78,6 +79,13 @@ class SettingController extends Controller
             'sms_textsms_partner_id' => SiteSetting::get('sms_textsms_partner_id', config('services.sms.textsms_partner_id', '14712')),
             'sms_textsms_shortcode' => SiteSetting::get('sms_textsms_shortcode', config('services.sms.textsms_shortcode', 'TextSMS')),
             'sms_textsms_host' => SiteSetting::get('sms_textsms_host', config('services.sms.textsms_host', 'sms.textsms.co.ke')),
+
+            // Ticketing Email Template (ticket@kisiitv.co.ke)
+            'ticket_email_subject' => SiteSetting::get('ticket_email_subject', 'Your Ticket for {event_title} — Kisii TV Events'),
+            'ticket_email_heading' => SiteSetting::get('ticket_email_heading', 'Official Digital Ticket Confirmation'),
+            'ticket_email_intro' => SiteSetting::get('ticket_email_intro', 'Your ticket order is confirmed! Present your digital ticket pass below at the venue entrance for quick check-in.'),
+            'ticket_email_instructions' => SiteSetting::get('ticket_email_instructions', 'Arrive at least 30 minutes before doors open. Keep your ticket link private — each ticket code is valid for a single check-in at the gate.'),
+            'ticket_email_footer' => SiteSetting::get('ticket_email_footer', 'Need help with your ticket? Reply directly to ticket@kisiitv.co.ke for instant support.'),
         ];
 
         return view('admin.settings.index', compact('settings'));
@@ -150,6 +158,13 @@ class SettingController extends Controller
             'sms_textsms_partner_id' => 'nullable|string|max:100',
             'sms_textsms_shortcode' => 'nullable|string|max:50',
             'sms_textsms_host' => 'nullable|string|max:150',
+
+            // Ticketing Email Template
+            'ticket_email_subject' => 'nullable|string|max:200',
+            'ticket_email_heading' => 'nullable|string|max:150',
+            'ticket_email_intro' => 'nullable|string|max:1000',
+            'ticket_email_instructions' => 'nullable|string|max:1000',
+            'ticket_email_footer' => 'nullable|string|max:500',
         ]);
 
         // Handle Site Logo upload or URL
@@ -214,6 +229,11 @@ class SettingController extends Controller
             'sms_textsms_partner_id' => ['string', 'sms'],
             'sms_textsms_shortcode' => ['string', 'sms'],
             'sms_textsms_host' => ['string', 'sms'],
+            'ticket_email_subject' => ['string', 'ticketing_mail'],
+            'ticket_email_heading' => ['string', 'ticketing_mail'],
+            'ticket_email_intro' => ['text', 'ticketing_mail'],
+            'ticket_email_instructions' => ['text', 'ticketing_mail'],
+            'ticket_email_footer' => ['text', 'ticketing_mail'],
         ];
 
         foreach ($keysToSave as $key => [$type, $group]) {
@@ -262,7 +282,7 @@ class SettingController extends Controller
     }
 
     /**
-     * Send a live test email from the admin backend to verify SMTP configuration.
+     * Send a live test ticket email using the branded ticketing HTML template.
      */
     public function testEmail(Request $request): RedirectResponse
     {
@@ -271,16 +291,12 @@ class SettingController extends Controller
         ]);
 
         try {
-            Mail::raw(
-                'Kisii TV SMTP Test: Your ticket@kisiitv.co.ke outgoing mail configuration is working properly!',
-                function ($message) use ($validated): void {
-                    $message->to($validated['test_email'])
-                        ->subject('Kisii TV SMTP Email Test — Confirmed');
-                }
+            Mail::to($validated['test_email'])->send(
+                EventTicketMail::makeTestSample($validated['test_email'])
             );
 
             return redirect()->route('admin.settings.index', ['tab' => 'sms'])
-                ->with('success', "Test email sent successfully to {$validated['test_email']} via ".config('mail.default').' ('.config('mail.from.address').').');
+                ->with('success', "Branded test ticket email sent to {$validated['test_email']} via ".config('mail.default').' ('.config('mail.from.address').').');
         } catch (\Throwable $e) {
             return redirect()->route('admin.settings.index', ['tab' => 'sms'])
                 ->with('error', 'SMTP Test Failed: '.$e->getMessage());

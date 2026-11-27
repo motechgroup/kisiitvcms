@@ -49,8 +49,8 @@
             <span class="px-1.5 py-0.5 rounded bg-amber-400 text-slate-950 text-[9px] font-black uppercase">Ads &amp; GA4</span>
         </button>
         <button type="button" @click="activeTab = 'sms'" :class="activeTab === 'sms' ? 'bg-[#1b52bc] text-white shadow' : 'text-slate-600 hover:text-slate-900'" class="px-4 py-2 rounded transition cursor-pointer flex items-center space-x-1.5">
-            <span>7. SMS Gateway</span>
-            <span class="px-1.5 py-0.5 rounded bg-emerald-500 text-slate-950 text-[9px] font-black uppercase">TextSMS</span>
+            <span>7. SMS &amp; Ticket Email</span>
+            <span class="px-1.5 py-0.5 rounded bg-emerald-500 text-slate-950 text-[9px] font-black uppercase">Ticketing</span>
         </button>
     </div>
 
@@ -566,6 +566,48 @@
                             value="{{ old('sms_textsms_host', $settings['sms_textsms_host']) }}"
                             placeholder="sms.textsms.co.ke"
                             class="w-full text-xs font-mono p-2.5 border border-slate-300 rounded bg-white focus:border-[#1b52bc]">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Ticketing-Only Email Template Customizer -->
+            <div class="p-5 bg-slate-50 border border-slate-200 rounded-xl space-y-4">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h4 class="text-xs font-black uppercase tracking-wider text-slate-900">Ticket Confirmation Email Template (<code>ticket@kisiitv.co.ke</code>)</h4>
+                        <p class="text-[11px] text-slate-500">Customize the branded HTML ticket email sent to buyers. Supported placeholders: <code>{event_title}</code>, <code>{order_reference}</code>, <code>{buyer_name}</code>.</p>
+                    </div>
+                    <span class="px-2 py-0.5 rounded bg-blue-100 text-blue-800 text-[10px] font-bold uppercase">Ticketing Only</span>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-700 mb-1">Email Subject Line</label>
+                        <input type="text" name="ticket_email_subject"
+                            value="{{ old('ticket_email_subject', $settings['ticket_email_subject']) }}"
+                            class="w-full text-xs p-2.5 border border-slate-300 rounded bg-white focus:border-[#1b52bc]">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-700 mb-1">Header Subtitle</label>
+                        <input type="text" name="ticket_email_heading"
+                            value="{{ old('ticket_email_heading', $settings['ticket_email_heading']) }}"
+                            class="w-full text-xs p-2.5 border border-slate-300 rounded bg-white focus:border-[#1b52bc]">
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-700 mb-1">Intro / Confirmation Message</label>
+                        <textarea name="ticket_email_intro" rows="2"
+                            class="w-full text-xs p-2.5 border border-slate-300 rounded bg-white focus:border-[#1b52bc]">{{ old('ticket_email_intro', $settings['ticket_email_intro']) }}</textarea>
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-700 mb-1">Gate Check-In Instructions</label>
+                        <textarea name="ticket_email_instructions" rows="2"
+                            class="w-full text-xs p-2.5 border border-slate-300 rounded bg-white focus:border-[#1b52bc]">{{ old('ticket_email_instructions', $settings['ticket_email_instructions']) }}</textarea>
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-700 mb-1">Footer Support Note</label>
+                        <input type="text" name="ticket_email_footer"
+                            value="{{ old('ticket_email_footer', $settings['ticket_email_footer']) }}"
+                            class="w-full text-xs p-2.5 border border-slate-300 rounded bg-white focus:border-[#1b52bc]">
                     </div>
                 </div>
             </div>

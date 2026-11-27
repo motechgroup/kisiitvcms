@@ -437,4 +437,20 @@ class EventTicketingTest extends TestCase
 
         $this->assertTrue(Event::where('title', 'Kisii Tech Summit 2026 (Copy)')->exists());
     }
+
+    public function test_admin_can_send_branded_test_ticket_email_from_settings(): void
+    {
+        Mail::fake();
+
+        $this->actingAs($this->superAdmin)
+            ->post(route('admin.settings.test-email'), [
+                'test_email' => 'admin-check@kisiitv.co.ke',
+            ])
+            ->assertRedirect(route('admin.settings.index', ['tab' => 'sms']))
+            ->assertSessionHas('success');
+
+        Mail::assertSent(EventTicketMail::class, function (EventTicketMail $mail) {
+            return $mail->hasTo('admin-check@kisiitv.co.ke') && $mail->isTestPreview === true;
+        });
+    }
 }
