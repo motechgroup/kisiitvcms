@@ -3,9 +3,11 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Article;
 use App\Models\Category;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
 
@@ -124,24 +126,95 @@ class CategoryController extends Controller
     }
 
     /**
-     * Remove the specified category from database.
+     * Quick toggle for category active status.
+     */
+    public function toggleActive(Category $category): RedirectResponse
+    {
+        $category->is_active = ! $category->is_active;
+        $category->save();
+
+        $status = $category->is_active ? 'activated' : 'disabled';
+
+        return redirect()->route('admin.categories.index')
+            ->with('success', "Category '{$category->name}' has been {$status}.");
+    }
+
+    /**
+     * Move a category up or down in the navigation display order.
+     */
+    public function move(Request $request, Category $category): RedirectResponse
+    {
+        $direction = $request->input('direction', 'up');
+
+        $siblings = Category::where('parent_id', $category->parent_id)
+            ->orderBy('display_order')
+            ->orderBy('id')
+            ->get()
+            ->values();
+
+        $currentIndex = $siblings->search(fn (Category $item) => $item->id === $category->id);
+
+        if ($currentIndex !== false) {
+            $targetIndex = $direction === 'down' ? $currentIndex + 1 : $currentIndex - 1;
+
+            if ($siblings->has($targetIndex)) {
+                $reordered = $siblings->all();
+                [$reordered[$currentIndex], $reordered[$targetIndex]] = [$reordered[$targetIndex], $reordered[$currentIndex]];
+
+                foreach ($reordered as $order => $item) {
+                    $item->update(['display_order' => $order + 1]);
+                }
+            }
+        }
+
+        return redirect()->route('admin.categories.index')
+            ->with('success', "Navigation order updated for '{$category->name}'.");
+    }
+
+    /**
+     * Safely delete a category (reassigning any articles and preserving subcategories).
      */
     public function destroy(Category $category): RedirectResponse
     {
-        if ($category->articles()->exists()) {
-            return redirect()->route('admin.categories.index')
-                ->with('error', "Cannot delete category '{$category->name}' because it contains articles. Reassign or remove its articles first.");
-        }
-
-        if ($category->children()->exists()) {
-            return redirect()->route('admin.categories.index')
-                ->with('error', "Cannot delete category '{$category->name}' because it has subcategories. Reassign or remove subcategories first.");
-        }
-
         $name = $category->name;
-        $category->delete();
+        $articleCount = $category->articles()->count();
+
+        if ($articleCount > 0) {
+            $fallback = $category->parent_id
+                ? Category::find($category->parent_id)
+                : Category::where('id', '!=', $category->id)
+                    ->whereNull('parent_id')
+                    ->orderBy('display_order')
+                    ->first()
+                    ?? Category::where('id', '!=', $category->id)->first();
+
+            if (! $fallback) {
+                return redirect()->route('admin.categories.index')
+                    ->with('error', "Cannot delete '{$name}' because it is the only category left and still has {$articleCount} articles.");
+            }
+        }
+
+        DB::transaction(function () use ($category, $articleCount): void {
+            if ($articleCount > 0) {
+                $fallbackId = $category->parent_id
+                    ?: Category::where('id', '!=', $category->id)
+                        ->whereNull('parent_id')
+                        ->orderBy('display_order')
+                        ->value('id')
+                    ?: Category::where('id', '!=', $category->id)->value('id');
+
+                Article::where('category_id', $category->id)->update(['category_id' => $fallbackId]);
+            }
+
+            Article::where('subcategory_id', $category->id)->update(['subcategory_id' => null]);
+            Category::where('parent_id', $category->id)->update(['parent_id' => $category->parent_id]);
+
+            $category->delete();
+        });
+
+        $note = $articleCount > 0 ? " ({$articleCount} articles were safely reassigned)." : '.';
 
         return redirect()->route('admin.categories.index')
-            ->with('success', "Category '{$name}' deleted successfully.");
+            ->with('success', "Category '{$name}' deleted successfully{$note}");
     }
 }

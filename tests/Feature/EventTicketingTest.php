@@ -3,12 +3,15 @@
 namespace Tests\Feature;
 
 use App\Mail\EventTicketMail;
+use App\Models\Article;
+use App\Models\Category;
 use App\Models\Event;
 use App\Models\EventTicketOrder;
 use App\Models\PaymentGateway;
 use App\Models\Role;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Mail;
 use Tests\TestCase;
@@ -253,13 +256,22 @@ class EventTicketingTest extends TestCase
 
     public function test_header_events_menu_and_generated_banner_appear_only_when_an_active_event_exists(): void
     {
-        // With no active events, the header banner and Events menu do not show
+        // Demo event migration seeds an active event by default; verify it renders first
+        $this->get('/')
+            ->assertStatus(200)
+            ->assertSee('Upcoming Event')
+            ->assertSee('Kisii TV Cultural &amp; Music Festival 2026', false);
+
+        // Once all events are removed, the header banner and Events menu hide automatically
+        Event::query()->delete();
+        Cache::forget('active_header_event_v1');
+
         $this->get('/')
             ->assertStatus(200)
             ->assertDontSee('Upcoming Event')
             ->assertDontSee('Get Tickets');
 
-        // Create an active upcoming event
+        // Create a new active upcoming event
         $event = Event::create([
             'title' => 'Kisii Live Music Night',
             'slug' => 'kisii-live-music-night',
@@ -284,5 +296,50 @@ class EventTicketingTest extends TestCase
             ->assertSee('Kisii Live Music Night')
             ->assertSee('Get Tickets')
             ->assertSee(route('events.index'));
+    }
+
+    public function test_admin_can_reorder_and_safely_delete_navigation_categories_with_articles(): void
+    {
+        $catA = Category::create([
+            'name' => 'Politics',
+            'slug' => 'politics-test',
+            'display_order' => 1,
+            'is_active' => true,
+            'show_in_menu' => true,
+        ]);
+
+        $catB = Category::create([
+            'name' => 'Business',
+            'slug' => 'business-test',
+            'display_order' => 2,
+            'is_active' => true,
+            'show_in_menu' => true,
+        ]);
+
+        $article = Article::create([
+            'title' => 'Test Article in Business',
+            'slug' => 'test-article-in-business',
+            'content' => '<p>Body</p>',
+            'user_id' => $this->superAdmin->id,
+            'category_id' => $catB->id,
+            'status' => 'published',
+            'published_at' => now(),
+        ]);
+
+        // Move Business up above Politics
+        $this->actingAs($this->superAdmin)
+            ->patch(route('admin.categories.move', $catB), ['direction' => 'up'])
+            ->assertRedirect(route('admin.categories.index'));
+
+        $this->assertLessThan($catA->fresh()->display_order, $catB->fresh()->display_order);
+
+        // Delete Business even though it has an article -> article is safely reassigned to Politics
+        $this->actingAs($this->superAdmin)
+            ->delete(route('admin.categories.destroy', $catB))
+            ->assertRedirect(route('admin.categories.index'))
+            ->assertSessionHas('success');
+
+        $this->assertDatabaseMissing('categories', ['id' => $catB->id]);
+        $this->assertSame($catA->id, $article->fresh()->category_id);
     }
 }

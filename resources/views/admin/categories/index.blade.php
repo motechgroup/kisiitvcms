@@ -62,8 +62,22 @@
                     @forelse($rootCategories as $root)
                         <!-- ROOT CATEGORY ROW -->
                         <tr class="bg-white hover:bg-slate-50/80 transition font-semibold">
-                            <td class="py-3 px-4 font-mono text-slate-400">
-                                #{{ $root->display_order }}
+                            <td class="py-3 px-4 font-mono text-slate-400 whitespace-nowrap">
+                                <div class="flex items-center gap-1">
+                                    <span>#{{ $root->display_order }}</span>
+                                    <form method="POST" action="{{ route('admin.categories.move', $root) }}" class="inline">
+                                        @csrf
+                                        @method('PATCH')
+                                        <input type="hidden" name="direction" value="up">
+                                        <button type="submit" title="Move Up" class="px-1 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-slate-600 cursor-pointer">&uarr;</button>
+                                    </form>
+                                    <form method="POST" action="{{ route('admin.categories.move', $root) }}" class="inline">
+                                        @csrf
+                                        @method('PATCH')
+                                        <input type="hidden" name="direction" value="down">
+                                        <button type="submit" title="Move Down" class="px-1 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-slate-600 cursor-pointer">&darr;</button>
+                                    </form>
+                                </div>
                             </td>
                             <td class="py-3 px-4">
                                 <div class="flex items-center space-x-2">
@@ -97,19 +111,25 @@
                                     @endif
                                 </form>
                             </td>
-                            <td class="py-3 px-4 text-right space-x-2">
-                                <button type="button" 
+                            <td class="py-3 px-4 text-right space-x-2 whitespace-nowrap">
+                                <form method="POST" action="{{ route('admin.categories.toggle-active', $root) }}" class="inline">
+                                    @csrf
+                                    @method('PATCH')
+                                    <button type="submit" class="px-2 py-0.5 rounded text-[10px] font-bold uppercase cursor-pointer {{ $root->is_active ? 'bg-blue-50 text-blue-700 hover:bg-slate-200' : 'bg-slate-200 text-slate-500 hover:bg-emerald-100 hover:text-emerald-800' }}">
+                                        {{ $root->is_active ? 'Active' : 'Off' }}
+                                    </button>
+                                </form>
+                                <button type="button"
                                     @click="activeEditCategory = {{ json_encode($root) }}; editModalOpen = true"
-                                    class="text-blue-600 hover:underline font-semibold">
+                                    class="text-blue-600 hover:underline font-semibold cursor-pointer">
                                     Edit
                                 </button>
-                                @if($root->articles_count === 0 && $root->children->isEmpty())
-                                    <form method="POST" action="{{ route('admin.categories.destroy', $root) }}" class="inline" onsubmit="return confirm('Delete this category?')">
-                                        @csrf
-                                        @method('DELETE')
-                                        <button type="submit" class="text-red-600 hover:underline font-semibold">Delete</button>
-                                    </form>
-                                @endif
+                                <form method="POST" action="{{ route('admin.categories.destroy', $root) }}" class="inline"
+                                    onsubmit="return confirm('Delete category {{ addslashes($root->name) }}? Any articles in it will be safely reassigned to another category.');">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button type="submit" class="text-red-600 hover:underline font-semibold cursor-pointer">Delete</button>
+                                </form>
                             </td>
                         </tr>
 
@@ -148,19 +168,18 @@
                                         @endif
                                     </form>
                                 </td>
-                                <td class="py-2.5 px-4 text-right space-x-2">
-                                    <button type="button" 
+                                <td class="py-2.5 px-4 text-right space-x-2 whitespace-nowrap">
+                                    <button type="button"
                                         @click="activeEditCategory = {{ json_encode($child) }}; editModalOpen = true"
-                                        class="text-blue-600 hover:underline">
+                                        class="text-blue-600 hover:underline cursor-pointer">
                                         Edit
                                     </button>
-                                    @if($child->articles_count === 0)
-                                        <form method="POST" action="{{ route('admin.categories.destroy', $child) }}" class="inline" onsubmit="return confirm('Delete this subcategory?')">
-                                            @csrf
-                                            @method('DELETE')
-                                            <button type="submit" class="text-red-600 hover:underline">Delete</button>
-                                        </form>
-                                    @endif
+                                    <form method="POST" action="{{ route('admin.categories.destroy', $child) }}" class="inline"
+                                        onsubmit="return confirm('Delete subcategory {{ addslashes($child->name) }}?');">
+                                        @csrf
+                                        @method('DELETE')
+                                        <button type="submit" class="text-red-600 hover:underline cursor-pointer">Delete</button>
+                                    </form>
                                 </td>
                             </tr>
                         @endforeach
