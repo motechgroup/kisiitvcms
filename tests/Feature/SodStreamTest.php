@@ -243,4 +243,131 @@ class SodStreamTest extends TestCase
         $replay->assertRedirect(route('sod.show', $sodStream->slug));
         $replay->assertSessionHas('error');
     }
+
+    public function test_admin_can_view_sod_finance_report_export_csv_and_revoke_or_enable_subscribers(): void
+    {
+        $sodStream = LiveStream::factory()->create([
+            'title' => 'Kisii Mega Rhumba Concert',
+            'platform' => 'youtube',
+            'stream_url' => 'https://www.youtube.com/watch?v=rhumbaLive1',
+            'embed_url' => 'https://www.youtube.com/embed/rhumbaLive1?autoplay=1',
+            'status' => 'live',
+            'is_active' => true,
+            'is_sod' => true,
+            'sod_price' => 400,
+            'sod_currency' => 'KES',
+            'serve_on_main_live' => false,
+            'donations_enabled' => false,
+        ]);
+
+        $plainDeviceKey = 'test_device_key_for_subscriber_1234567890';
+        $paidPass = StreamAccessPass::create([
+            'live_stream_id' => $sodStream->id,
+            'gateway_code' => 'paystack',
+            'order_reference' => 'KTV-SOD-PAID0001',
+            'external_reference' => 'PSK-REF-001',
+            'buyer_name' => 'Kemunto Subscriber',
+            'buyer_phone' => '254712345678',
+            'buyer_email' => 'kemunto@example.com',
+            'amount' => 400,
+            'currency' => 'KES',
+            'status' => 'paid',
+            'access_token' => StreamAccessPass::generateAccessToken(),
+            'device_fingerprint_hash' => hash('sha256', $plainDeviceKey),
+            'paid_at' => now(),
+            'expires_at' => now()->addHours(24),
+        ]);
+
+        StreamAccessPass::create([
+            'live_stream_id' => $sodStream->id,
+            'gateway_code' => 'mpesa',
+            'order_reference' => 'KTV-SOD-PEND0002',
+            'buyer_name' => 'Pending Viewer',
+            'buyer_phone' => '254799887766',
+            'amount' => 400,
+            'currency' => 'KES',
+            'status' => 'pending',
+            'access_token' => StreamAccessPass::generateAccessToken(),
+            'expires_at' => now()->addHours(24),
+        ]);
+
+        // 1. Admin views the SOD subscribers & finance report
+        $report = $this->actingAs($this->superAdmin)->get(route('admin.streams.sod', $sodStream));
+        $report->assertStatus(200);
+        $report->assertSee('Kisii Mega Rhumba Concert');
+        $report->assertSee('KES 400.00');
+        $report->assertSee('KTV-SOD-PAID0001');
+        $report->assertSee('Kemunto Subscriber');
+        $report->assertSee('PAYSTACK');
+        $report->assertSee('Revoke Access');
+
+        // 2. Admin can filter subscribers by status and search
+        $filtered = $this->actingAs($this->superAdmin)->get(route('admin.streams.sod', [
+            'liveStream' => $sodStream,
+            'status' => 'paid',
+            'search' => 'Kemunto',
+        ]));
+        $filtered->assertStatus(200);
+        $filtered->assertSee('KTV-SOD-PAID0001');
+        $filtered->assertDontSee('KTV-SOD-PEND0002');
+
+        // 3. Admin exports finance CSV report
+        $csv = $this->actingAs($this->superAdmin)->get(route('admin.streams.sod.export', $sodStream));
+        $csv->assertStatus(200);
+        $csv->assertHeader('content-type', 'text/csv; charset=UTF-8');
+        $this->assertStringContainsString('KTV-SOD-PAID0001', $csv->streamedContent());
+        $this->assertStringContainsString('Kemunto Subscriber', $csv->streamedContent());
+
+        // 4. Admin revokes the paid subscriber's access
+        $revoke = $this->actingAs($this->superAdmin)->patch(
+            route('admin.streams.sod.passes.status', [$sodStream, $paidPass]),
+            ['status' => 'revoked']
+        );
+        $revoke->assertRedirect();
+        $this->assertSame('revoked', $paidPass->fresh()->status);
+
+        // 5. Revoked subscriber is immediately blocked on /sod/{slug} and heartbeat (even with their valid device cookie)
+        auth()->logout();
+        $cookieName = StreamAccessPass::deviceCookieName($sodStream->id);
+
+        $blockedView = $this->withCookie($cookieName, $plainDeviceKey)
+            ->get(route('sod.show', $sodStream->slug));
+        $blockedView->assertStatus(200);
+        $blockedView->assertSee('Play / Stream Now');
+        $blockedView->assertDontSee('rhumbaLive1');
+
+        $blockedHeartbeat = $this->withCredentials()
+            ->withCookie($cookieName, $plainDeviceKey)
+            ->getJson(route('sod.heartbeat', $sodStream->slug));
+        $blockedHeartbeat->assertStatus(403)->assertJson(['authorized' => false]);
+
+        // 6. Revoked subscriber cannot replay callback to self-restore
+        $blockedCallback = $this->get(route('sod.callback', [
+            'gateway' => 'paystack',
+            'reference' => $paidPass->order_reference,
+        ]));
+        $blockedCallback->assertRedirect(route('sod.show', $sodStream->slug));
+        $blockedCallback->assertSessionHas('error');
+
+        // 7. Admin re-enables the subscriber's access
+        $enable = $this->actingAs($this->superAdmin)->patch(
+            route('admin.streams.sod.passes.status', [$sodStream, $paidPass]),
+            ['status' => 'paid']
+        );
+        $enable->assertRedirect();
+        $this->assertSame('paid', $paidPass->fresh()->status);
+
+        // 8. Re-enabled subscriber immediately regains playback and 200 heartbeat on their bound device
+        auth()->logout();
+        $restoredView = $this->withCookie($cookieName, $plainDeviceKey)
+            ->get(route('sod.show', $sodStream->slug));
+        $restoredView->assertStatus(200);
+        $restoredView->assertSee('rhumbaLive1');
+        $restoredView->assertSee('Paid Access Active · Locked to This Device');
+
+        $restoredHeartbeat = $this->withCredentials()
+            ->withCookie($cookieName, $plainDeviceKey)
+            ->getJson(route('sod.heartbeat', $sodStream->slug));
+        $restoredHeartbeat->assertStatus(200)->assertJson(['authorized' => true]);
+    }
 }

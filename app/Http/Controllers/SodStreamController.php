@@ -186,6 +186,11 @@ class SodStreamController extends Controller
             return redirect()->route('live.index')->with('error', 'Stream pass order could not be found.');
         }
 
+        if ($pass->status === 'revoked') {
+            return redirect()->route('sod.show', $pass->liveStream->slug)
+                ->with('error', 'This stream pass has been revoked by the administrator.');
+        }
+
         // Prevent link-sharing replay if pass was already bound to another device
         if ($pass->isPaidAndActive() && $pass->device_fingerprint_hash !== null) {
             $cookieKey = $request->cookie(StreamAccessPass::deviceCookieName($pass->live_stream_id));
@@ -221,6 +226,11 @@ class SodStreamController extends Controller
     public function complete(Request $request, StreamAccessPass $pass): RedirectResponse
     {
         $pass->load('liveStream');
+
+        if ($pass->status === 'revoked') {
+            return redirect()->route('sod.show', $pass->liveStream->slug)
+                ->with('error', 'This stream pass has been revoked by the administrator.');
+        }
 
         if ($pass->isPaidAndActive() && $pass->device_fingerprint_hash !== null) {
             $cookieKey = $request->cookie(StreamAccessPass::deviceCookieName($pass->live_stream_id));

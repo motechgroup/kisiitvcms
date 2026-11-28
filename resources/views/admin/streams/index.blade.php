@@ -169,9 +169,10 @@
 
                             <td class="py-3.5 px-4 text-center">
                                 @if($stream->is_sod)
-                                    <span class="inline-flex items-center px-2.5 py-1 rounded bg-amber-100 text-amber-900 text-[10px] font-black uppercase">
+                                    <a href="{{ route('admin.streams.sod', $stream) }}"
+                                        class="inline-flex items-center px-2.5 py-1 rounded bg-amber-100 hover:bg-amber-200 text-amber-900 text-[10px] font-black uppercase transition">
                                         Paywall ({{ $stream->paid_access_passes_count ?? 0 }} paid)
-                                    </span>
+                                    </a>
                                 @else
                                     <form method="POST" action="{{ route('admin.streams.toggle-donations', $stream) }}" class="inline">
                                         @csrf
@@ -204,6 +205,11 @@
                             </td>
 
                             <td class="py-3.5 px-4 text-right space-x-2 whitespace-nowrap">
+                                @if($stream->is_sod)
+                                    <a href="{{ route('admin.streams.sod', $stream) }}" class="text-amber-700 hover:underline font-bold">
+                                        Subscribers &amp; Finance
+                                    </a>
+                                @endif
                                 <a href="{{ $stream->is_sod ? $stream->sodUrl() : route('live.index') }}" target="_blank" class="text-emerald-700 hover:underline font-semibold">
                                     Preview
                                 </a>

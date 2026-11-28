@@ -145,6 +145,9 @@ Route::middleware('auth')->group(function () {
         Route::patch('/streams/{liveStream}/activate-public', [AdminLiveStreamController::class, 'activatePublic'])->name('streams.activate-public');
         Route::patch('/streams/{liveStream}/toggle-status', [AdminLiveStreamController::class, 'toggleStatus'])->name('streams.toggle-status');
         Route::patch('/streams/{liveStream}/toggle-donations', [AdminLiveStreamController::class, 'toggleDonations'])->name('streams.toggle-donations');
+        Route::get('/streams/{liveStream}/sod', [AdminLiveStreamController::class, 'sodReport'])->name('streams.sod');
+        Route::get('/streams/{liveStream}/sod/export', [AdminLiveStreamController::class, 'exportSodReport'])->name('streams.sod.export');
+        Route::patch('/streams/{liveStream}/sod/passes/{pass}/status', [AdminLiveStreamController::class, 'updateSodPassStatus'])->name('streams.sod.passes.status');
         Route::delete('/streams/{liveStream}', [AdminLiveStreamController::class, 'destroy'])->name('streams.destroy');
 
         // Viewer Donations & Transactions Ledger
