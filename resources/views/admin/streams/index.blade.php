@@ -4,7 +4,7 @@
 @section('page_title', 'Live Stream Broadcast Studio (YouTube, Twitch & Facebook)')
 
 @section('content')
-<div class="space-y-8" x-data="{ createModalOpen: false, editModalOpen: false, createPlatform: 'youtube', activeStream: null }">
+<div class="space-y-8" x-data="{ createModalOpen: false, editModalOpen: false, createPlatform: 'youtube', createIsSod: false, activeStream: null }">
 
     <!-- Header & Action Bar -->
     <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-white p-5 border border-slate-200 shadow-sm">
@@ -47,8 +47,8 @@
             <span class="text-xl font-black text-[#d9252a] mt-1 block font-headline">{{ $liveCount }} ACTIVE</span>
         </div>
         <div class="bg-white p-4 border border-slate-200 shadow-sm">
-            <span class="text-[10px] font-bold uppercase text-slate-400 block">Total Configured Streams</span>
-            <span class="text-xl font-black text-slate-900 mt-1 block font-headline">{{ $streams->count() }}</span>
+            <span class="text-[10px] font-bold uppercase text-slate-400 block">SOD Pay-Per-View Revenue</span>
+            <span class="text-xl font-black text-amber-600 mt-1 block font-headline">KES {{ number_format($totalSodRevenue, 0) }}</span>
         </div>
         <div class="bg-white p-4 border border-slate-200 shadow-sm">
             <span class="text-[10px] font-bold uppercase text-slate-400 block">Total Viewer Donations Raised</span>
@@ -95,8 +95,15 @@
                         @endphp
                         <tr class="{{ $isPublicStream ? 'bg-red-50/40' : 'hover:bg-slate-50' }} transition">
                             <td class="py-3.5 px-4">
-                                <div class="flex items-center space-x-2">
-                                    @if($isPublicStream)
+                                <div class="flex flex-wrap items-center gap-1.5">
+                                    @if($stream->is_sod)
+                                        <span class="bg-amber-400 text-slate-950 text-[9px] font-black uppercase px-2 py-0.5 rounded">
+                                            SOD · {{ $stream->sod_currency }} {{ number_format((float) $stream->sod_price, 0) }}
+                                        </span>
+                                        <span class="bg-slate-800 text-slate-200 text-[9px] font-bold uppercase px-1.5 py-0.5 rounded">
+                                            {{ $stream->serve_on_main_live ? 'On /live' : 'Direct Link Only' }}
+                                        </span>
+                                    @elseif($isPublicStream)
                                         <span class="bg-[#d9252a] text-white text-[9px] font-black uppercase px-2 py-0.5 rounded flex items-center space-x-1">
                                             <span class="w-1.5 h-1.5 rounded-full bg-white animate-ping"></span>
                                             <span>PUBLIC STREAM</span>
@@ -106,9 +113,20 @@
                                         {{ $stream->title }}
                                     </span>
                                 </div>
-                                <div class="text-[11px] text-slate-400 font-mono truncate max-w-md mt-0.5">
-                                    {{ Str::limit($stream->embed_url ?: $stream->stream_url, 80) }}
-                                </div>
+                                @if($stream->is_sod)
+                                    <div class="flex items-center gap-2 mt-1">
+                                        <code class="text-[10px] text-[#1b52bc] bg-blue-50 px-1.5 py-0.5 rounded font-mono truncate max-w-xs">{{ $stream->sodUrl() }}</code>
+                                        <button type="button"
+                                            onclick="navigator.clipboard.writeText('{{ $stream->sodUrl() }}'); this.innerText='Copied!'; setTimeout(() => this.innerText='Copy Link', 1800);"
+                                            class="px-2 py-0.5 rounded bg-slate-900 text-white text-[10px] font-bold cursor-pointer">
+                                            Copy Link
+                                        </button>
+                                    </div>
+                                @else
+                                    <div class="text-[11px] text-slate-400 font-mono truncate max-w-md mt-0.5">
+                                        {{ Str::limit($stream->embed_url ?: $stream->stream_url, 80) }}
+                                    </div>
+                                @endif
                             </td>
 
                             <td class="py-3.5 px-4">
@@ -150,31 +168,43 @@
                             </td>
 
                             <td class="py-3.5 px-4 text-center">
-                                <form method="POST" action="{{ route('admin.streams.toggle-donations', $stream) }}" class="inline">
-                                    @csrf
-                                    @method('PATCH')
-                                    @if($stream->donations_enabled)
-                                        <button type="submit" title="Click to disable donations for this stream"
-                                            class="inline-flex items-center space-x-1 px-2.5 py-1 rounded bg-emerald-100 text-emerald-800 text-[10px] font-black uppercase hover:bg-red-100 hover:text-red-800 transition cursor-pointer">
-                                            <span>✓ Donate Active</span>
-                                        </button>
-                                    @else
-                                        <button type="submit" title="Click to enable donations for this stream"
-                                            class="inline-flex items-center space-x-1 px-2.5 py-1 rounded bg-slate-100 text-slate-500 text-[10px] font-black uppercase hover:bg-emerald-100 hover:text-emerald-800 transition cursor-pointer">
-                                            <span>Donate Disabled</span>
-                                        </button>
-                                    @endif
-                                </form>
+                                @if($stream->is_sod)
+                                    <span class="inline-flex items-center px-2.5 py-1 rounded bg-amber-100 text-amber-900 text-[10px] font-black uppercase">
+                                        Paywall ({{ $stream->paid_access_passes_count ?? 0 }} paid)
+                                    </span>
+                                @else
+                                    <form method="POST" action="{{ route('admin.streams.toggle-donations', $stream) }}" class="inline">
+                                        @csrf
+                                        @method('PATCH')
+                                        @if($stream->donations_enabled)
+                                            <button type="submit" title="Click to disable donations for this stream"
+                                                class="inline-flex items-center space-x-1 px-2.5 py-1 rounded bg-emerald-100 text-emerald-800 text-[10px] font-black uppercase hover:bg-red-100 hover:text-red-800 transition cursor-pointer">
+                                                <span>✓ Donate Active</span>
+                                            </button>
+                                        @else
+                                            <button type="submit" title="Click to enable donations for this stream"
+                                                class="inline-flex items-center space-x-1 px-2.5 py-1 rounded bg-slate-100 text-slate-500 text-[10px] font-black uppercase hover:bg-emerald-100 hover:text-emerald-800 transition cursor-pointer">
+                                                <span>Donate Disabled</span>
+                                            </button>
+                                        @endif
+                                    </form>
+                                @endif
                             </td>
 
                             <td class="py-3.5 px-4 font-mono">
-                                <div class="font-bold text-emerald-700">
-                                    KES {{ number_format((float) ($stream->completed_donations_sum_amount ?? 0), 0) }}
-                                </div>
+                                @if($stream->is_sod)
+                                    <div class="font-bold text-amber-700">
+                                        {{ $stream->sod_currency }} {{ number_format((float) ($stream->paid_access_passes_sum_amount ?? 0), 0) }}
+                                    </div>
+                                @else
+                                    <div class="font-bold text-emerald-700">
+                                        KES {{ number_format((float) ($stream->completed_donations_sum_amount ?? 0), 0) }}
+                                    </div>
+                                @endif
                             </td>
 
                             <td class="py-3.5 px-4 text-right space-x-2 whitespace-nowrap">
-                                <a href="{{ route('live.index') }}" target="_blank" class="text-emerald-700 hover:underline font-semibold">
+                                <a href="{{ $stream->is_sod ? $stream->sodUrl() : route('live.index') }}" target="_blank" class="text-emerald-700 hover:underline font-semibold">
                                     Preview
                                 </a>
                                 <button type="button"
@@ -262,7 +292,32 @@
                         class="w-full border border-slate-300 rounded px-3 py-2 focus:outline-none focus:border-[#1b52bc]"></textarea>
                 </div>
 
-                <div class="pt-2 border-t border-slate-100">
+                <!-- SOD (Streaming On Demand — Paid Pay-Per-View) Configuration -->
+                <div class="p-4 rounded-xl bg-amber-50 border border-amber-200 space-y-3">
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" name="is_sod" value="1" x-model="createIsSod" class="rounded text-amber-600">
+                        <span class="font-black uppercase text-amber-950">SOD (Streaming On Demand — Paid Pay-Per-View)</span>
+                    </label>
+                    <p class="text-[11px] text-amber-800">
+                        Viewers must pay to unlock playback. Access is locked to the buyer's device (sharing the link will not work), and no Donate button is shown.
+                    </p>
+
+                    <div x-show="createIsSod" x-cloak class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                        <div>
+                            <label class="block font-bold uppercase text-amber-900 mb-1">Stream Price (KES) *</label>
+                            <input type="number" name="sod_price" min="0" step="any" value="300" :required="createIsSod"
+                                class="w-full border border-amber-300 bg-white rounded px-3 py-2 font-mono font-bold">
+                        </div>
+                        <div class="flex items-end pb-1.5">
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="checkbox" name="serve_on_main_live" value="1" class="rounded text-[#1b52bc]">
+                                <span class="font-bold text-slate-800">Also serve on main <code>/live</code> page (leave unchecked for direct link only)</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <div x-show="!createIsSod" class="pt-2 border-t border-slate-100">
                     <label class="block font-bold uppercase text-slate-700 mb-1">Donation Modal Heading</label>
                     <input type="text" name="donation_call_to_action" value="Support Kisii TV Live Coverage"
                         class="w-full border border-slate-300 rounded px-3 py-2 focus:outline-none focus:border-[#1b52bc]">
@@ -271,9 +326,9 @@
                 <div class="flex flex-col sm:flex-row sm:items-center gap-4 pt-2">
                     <label class="flex items-center space-x-2 cursor-pointer">
                         <input type="checkbox" name="is_active" value="1" checked class="rounded text-[#d9252a]">
-                        <span class="font-bold text-slate-800">Serve this stream to Public now (replaces current public stream)</span>
+                        <span class="font-bold text-slate-800" x-text="createIsSod ? 'Activate SOD Stream Link Now' : 'Serve this stream to Public now (replaces current public stream)'"></span>
                     </label>
-                    <label class="flex items-center space-x-2 cursor-pointer">
+                    <label x-show="!createIsSod" class="flex items-center space-x-2 cursor-pointer">
                         <input type="checkbox" name="donations_enabled" value="1" checked class="rounded text-emerald-600">
                         <span class="font-bold text-slate-800">Activate Donations</span>
                     </label>
@@ -347,7 +402,28 @@
                             class="w-full border border-slate-300 rounded px-3 py-2 focus:outline-none focus:border-[#1b52bc]"></textarea>
                     </div>
 
-                    <div class="pt-2 border-t border-slate-100">
+                    <!-- SOD Configuration in Edit Modal -->
+                    <div class="p-4 rounded-xl bg-amber-50 border border-amber-200 space-y-3">
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" name="is_sod" value="1" x-model="activeStream.is_sod" class="rounded text-amber-600">
+                            <span class="font-black uppercase text-amber-950">SOD (Streaming On Demand — Paid)</span>
+                        </label>
+                        <div x-show="activeStream.is_sod" class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                            <div>
+                                <label class="block font-bold uppercase text-amber-900 mb-1">Stream Price (KES)</label>
+                                <input type="number" name="sod_price" min="0" step="any" x-model="activeStream.sod_price"
+                                    class="w-full border border-amber-300 bg-white rounded px-3 py-2 font-mono font-bold">
+                            </div>
+                            <div class="flex items-end pb-1.5">
+                                <label class="flex items-center gap-2 cursor-pointer">
+                                    <input type="checkbox" name="serve_on_main_live" value="1" :checked="activeStream.serve_on_main_live" class="rounded text-[#1b52bc]">
+                                    <span class="font-bold text-slate-800">Serve on main <code>/live</code> page</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div x-show="!activeStream.is_sod" class="pt-2 border-t border-slate-100">
                         <label class="block font-bold uppercase text-slate-700 mb-1">Donation Modal Heading</label>
                         <input type="text" name="donation_call_to_action" x-model="activeStream.donation_call_to_action"
                             class="w-full border border-slate-300 rounded px-3 py-2 focus:outline-none focus:border-[#1b52bc]">
@@ -356,9 +432,9 @@
                     <div class="flex flex-col sm:flex-row sm:items-center gap-4 pt-2">
                         <label class="flex items-center space-x-2 cursor-pointer">
                             <input type="checkbox" name="is_active" value="1" :checked="activeStream.is_active" class="rounded text-[#d9252a]">
-                            <span class="font-bold text-slate-800">Serve this stream to Public (replaces current public stream)</span>
+                            <span class="font-bold text-slate-800">Stream Active</span>
                         </label>
-                        <label class="flex items-center space-x-2 cursor-pointer">
+                        <label x-show="!activeStream.is_sod" class="flex items-center space-x-2 cursor-pointer">
                             <input type="checkbox" name="donations_enabled" value="1" :checked="activeStream.donations_enabled" class="rounded text-emerald-600">
                             <span class="font-bold text-slate-800">Activate Donations</span>
                         </label>

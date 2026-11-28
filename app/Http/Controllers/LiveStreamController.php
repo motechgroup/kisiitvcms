@@ -16,11 +16,12 @@ class LiveStreamController extends Controller
     /**
      * Display the single active public live broadcast and donation desk.
      */
-    public function index(): View
+    public function index(): View|RedirectResponse
     {
         PaymentGateway::ensureDefaultsExist();
 
         $activeStream = LiveStream::active()
+            ->where('serve_on_main_live', true)
             ->where('status', 'live')
             ->orderByDesc('is_featured')
             ->latest('id')
@@ -28,19 +29,28 @@ class LiveStreamController extends Controller
 
         if (! $activeStream) {
             $activeStream = LiveStream::active()
+                ->where('serve_on_main_live', true)
                 ->orderByDesc('is_featured')
                 ->latest('id')
                 ->first();
+        }
+
+        if ($activeStream && $activeStream->is_sod) {
+            return redirect()->route('sod.show', $activeStream->slug);
         }
 
         return $this->renderStreamView($activeStream);
     }
 
     /**
-     * Display a specific live stream by slug (only if it is the active public stream, or if viewed by admin).
+     * Display a specific live stream by slug (SOD streams route through the protected paywall player).
      */
     public function show(LiveStream $liveStream): View|RedirectResponse
     {
+        if ($liveStream->is_sod) {
+            return redirect()->route('sod.show', $liveStream->slug);
+        }
+
         if (! $liveStream->is_active) {
             if (! auth()->check()) {
                 return redirect()->route('live.index');

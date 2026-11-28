@@ -7,6 +7,7 @@ use App\Models\Donation;
 use App\Models\LiveStream;
 use App\Models\PaymentGateway;
 use App\Models\SiteSetting;
+use App\Models\StreamAccessPass;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -22,8 +23,9 @@ class LiveStreamController extends Controller
         PaymentGateway::ensureDefaultsExist();
 
         $streams = LiveStream::with('creator')
-            ->withCount(['donations', 'completedDonations'])
+            ->withCount(['donations', 'completedDonations', 'paidAccessPasses'])
             ->withSum('completedDonations', 'amount')
+            ->withSum('paidAccessPasses', 'amount')
             ->orderByDesc('is_active')
             ->orderByDesc('is_featured')
             ->orderByDesc('id')
@@ -32,6 +34,7 @@ class LiveStreamController extends Controller
         $liveCount = $streams->where('status', 'live')->where('is_active', true)->count();
         $scheduledCount = $streams->where('status', 'scheduled')->count();
         $totalDonationsRaised = (float) Donation::completed()->sum('amount');
+        $totalSodRevenue = (float) StreamAccessPass::where('status', 'paid')->sum('amount');
         $globalDonationsEnabled = (bool) SiteSetting::get('live_donations_enabled', true);
         $activeGateways = PaymentGateway::active()->get();
 
@@ -40,6 +43,7 @@ class LiveStreamController extends Controller
             'liveCount',
             'scheduledCount',
             'totalDonationsRaised',
+            'totalSodRevenue',
             'globalDonationsEnabled',
             'activeGateways'
         ));
@@ -61,6 +65,10 @@ class LiveStreamController extends Controller
             'status' => ['nullable', 'string', 'in:scheduled,live,ended'],
             'is_active' => ['nullable', 'boolean'],
             'is_featured' => ['nullable', 'boolean'],
+            'is_sod' => ['nullable', 'boolean'],
+            'sod_price' => ['nullable', 'numeric', 'min:0'],
+            'sod_currency' => ['nullable', 'string', 'max:10'],
+            'serve_on_main_live' => ['nullable', 'boolean'],
             'donations_enabled' => ['nullable', 'boolean'],
             'donation_goal' => ['nullable', 'numeric', 'min:0'],
             'donation_call_to_action' => ['nullable', 'string', 'max:255'],
@@ -93,15 +101,20 @@ class LiveStreamController extends Controller
                 : LiveStream::resolveEmbedUrl($platform, $streamUrl, $request->getHost());
         }
 
+        $isSod = $request->boolean('is_sod', false);
+        $serveOnMainLive = $isSod
+            ? $request->boolean('serve_on_main_live', false)
+            : true;
+
         $serveToPublic = $request->has('is_active')
             ? $request->boolean('is_active')
             : true;
 
         $status = $validated['status'] ?? ($serveToPublic ? 'live' : 'scheduled');
 
-        // Enforce single active public stream at a time
-        if ($serveToPublic && $status === 'live') {
-            LiveStream::query()->update([
+        // Only replace the main /live broadcast when this stream is served on main /live
+        if ($serveToPublic && $status === 'live' && $serveOnMainLive) {
+            LiveStream::where('serve_on_main_live', true)->update([
                 'is_active' => false,
                 'is_featured' => false,
             ]);
@@ -117,8 +130,12 @@ class LiveStreamController extends Controller
             'thumbnail' => $validated['thumbnail'] ?? null,
             'status' => $status,
             'is_active' => $serveToPublic,
-            'is_featured' => $serveToPublic,
-            'donations_enabled' => $request->boolean('donations_enabled', true),
+            'is_featured' => $serveToPublic && $serveOnMainLive,
+            'is_sod' => $isSod,
+            'sod_price' => $isSod ? (float) ($validated['sod_price'] ?? 0) : 0,
+            'sod_currency' => strtoupper((string) ($validated['sod_currency'] ?? 'KES')),
+            'serve_on_main_live' => $serveOnMainLive,
+            'donations_enabled' => $isSod ? false : $request->boolean('donations_enabled', true),
             'donation_goal' => $validated['donation_goal'] ?? null,
             'donation_call_to_action' => $validated['donation_call_to_action'] ?? 'Support Kisii TV Live Coverage',
             'scheduled_at' => $validated['scheduled_at'] ?? null,
@@ -145,6 +162,10 @@ class LiveStreamController extends Controller
             'status' => ['nullable', 'string', 'in:scheduled,live,ended'],
             'is_active' => ['nullable', 'boolean'],
             'is_featured' => ['nullable', 'boolean'],
+            'is_sod' => ['nullable', 'boolean'],
+            'sod_price' => ['nullable', 'numeric', 'min:0'],
+            'sod_currency' => ['nullable', 'string', 'max:10'],
+            'serve_on_main_live' => ['nullable', 'boolean'],
             'donations_enabled' => ['nullable', 'boolean'],
             'donation_goal' => ['nullable', 'numeric', 'min:0'],
             'donation_call_to_action' => ['nullable', 'string', 'max:255'],
@@ -166,15 +187,24 @@ class LiveStreamController extends Controller
                 : LiveStream::resolveEmbedUrl($platform, $streamUrl, $request->getHost());
         }
 
+        $isSod = $request->boolean('is_sod', false);
+        $serveOnMainLive = $isSod
+            ? $request->boolean('serve_on_main_live', false)
+            : true;
+
         $serveToPublic = $request->boolean('is_active', false);
         $status = $validated['status'] ?? ($serveToPublic ? 'live' : 'ended');
 
-        // Enforce single active public stream at a time
-        if ($serveToPublic) {
-            LiveStream::where('id', '!=', $liveStream->id)->update([
-                'is_active' => false,
-                'is_featured' => false,
-            ]);
+        // Only replace the main /live broadcast when served on main /live
+        if ($serveToPublic && $serveOnMainLive) {
+            LiveStream::where('id', '!=', $liveStream->id)
+                ->where('serve_on_main_live', true)
+                ->update([
+                    'is_active' => false,
+                    'is_featured' => false,
+                ]);
+            $status = 'live';
+        } elseif ($serveToPublic) {
             $status = 'live';
         }
 
@@ -196,8 +226,12 @@ class LiveStreamController extends Controller
             'thumbnail' => $validated['thumbnail'] ?? null,
             'status' => $status,
             'is_active' => $serveToPublic,
-            'is_featured' => $serveToPublic,
-            'donations_enabled' => $request->boolean('donations_enabled', false),
+            'is_featured' => $serveToPublic && $serveOnMainLive,
+            'is_sod' => $isSod,
+            'sod_price' => $isSod ? (float) ($validated['sod_price'] ?? 0) : 0,
+            'sod_currency' => strtoupper((string) ($validated['sod_currency'] ?? 'KES')),
+            'serve_on_main_live' => $serveOnMainLive,
+            'donations_enabled' => $isSod ? false : $request->boolean('donations_enabled', false),
             'donation_goal' => $validated['donation_goal'] ?? null,
             'donation_call_to_action' => $validated['donation_call_to_action'] ?? $liveStream->donation_call_to_action,
             'scheduled_at' => $validated['scheduled_at'] ?? null,

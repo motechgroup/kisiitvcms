@@ -23,6 +23,10 @@ class LiveStream extends Model
         'status',
         'is_active',
         'is_featured',
+        'is_sod',
+        'sod_price',
+        'sod_currency',
+        'serve_on_main_live',
         'donations_enabled',
         'donation_goal',
         'donation_call_to_action',
@@ -38,6 +42,9 @@ class LiveStream extends Model
         return [
             'is_active' => 'boolean',
             'is_featured' => 'boolean',
+            'is_sod' => 'boolean',
+            'sod_price' => 'decimal:2',
+            'serve_on_main_live' => 'boolean',
             'donations_enabled' => 'boolean',
             'donation_goal' => 'decimal:2',
             'viewer_count' => 'integer',
@@ -65,6 +72,21 @@ class LiveStream extends Model
     public function completedDonations(): HasMany
     {
         return $this->hasMany(Donation::class)->where('status', 'completed');
+    }
+
+    public function accessPasses(): HasMany
+    {
+        return $this->hasMany(StreamAccessPass::class);
+    }
+
+    public function paidAccessPasses(): HasMany
+    {
+        return $this->hasMany(StreamAccessPass::class)->where('status', 'paid');
+    }
+
+    public function sodUrl(): string
+    {
+        return route('sod.show', $this->slug);
     }
 
     public function scopeActive(Builder $query): Builder

@@ -20,6 +20,7 @@ use App\Http\Controllers\HomeController;
 use App\Http\Controllers\LiveStreamController;
 use App\Http\Controllers\PublicCategoryController;
 use App\Http\Controllers\SeoController;
+use App\Http\Controllers\SodStreamController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Route;
@@ -40,6 +41,14 @@ Route::get('/category/{category}', [PublicCategoryController::class, 'show'])->n
 // Public Live Streaming & Viewer Donations Routes
 Route::get('/live', [LiveStreamController::class, 'index'])->name('live.index');
 Route::get('/live/{liveStream}', [LiveStreamController::class, 'show'])->name('live.show');
+
+// SOD (Streaming On Demand — Paid, Device-Locked Streams)
+Route::get('/sod/{liveStream}', [SodStreamController::class, 'show'])->name('sod.show');
+Route::post('/sod/{liveStream}/purchase', [SodStreamController::class, 'purchase'])->name('sod.purchase');
+Route::get('/sod/{liveStream}/heartbeat', [SodStreamController::class, 'heartbeat'])->name('sod.heartbeat');
+Route::get('/sod/checkout/callback/{gateway}', [SodStreamController::class, 'callback'])->name('sod.callback');
+Route::get('/sod/checkout/{pass}', [SodStreamController::class, 'checkout'])->name('sod.checkout');
+Route::post('/sod/checkout/{pass}/complete', [SodStreamController::class, 'complete'])->name('sod.complete');
 Route::get('/donate', [DonationController::class, 'index'])->name('donations.index');
 Route::get('/campaigns', [DonationCampaignController::class, 'index'])->name('campaigns.index');
 Route::get('/campaigns/{campaign:slug}', [DonationCampaignController::class, 'show'])->name('campaigns.show');
