@@ -108,4 +108,25 @@ class CategoryManagementTest extends TestCase
         $this->assertTrue($category->show_in_menu);
         $this->assertTrue($category->is_active);
     }
+
+    public function test_running_category_seeder_again_does_not_overwrite_or_recreate_custom_categories(): void
+    {
+        $kenya = Category::where('slug', 'kenya')->firstOrFail();
+        $kenya->update([
+            'name' => 'Custom Kenya Desk',
+            'display_order' => 99,
+            'show_in_menu' => false,
+        ]);
+
+        $video = Category::where('slug', 'video')->firstOrFail();
+        $video->delete();
+
+        $this->seed(CategorySeeder::class);
+
+        $kenya->refresh();
+        $this->assertSame('Custom Kenya Desk', $kenya->name);
+        $this->assertSame(99, $kenya->display_order);
+        $this->assertFalse($kenya->show_in_menu);
+        $this->assertDatabaseMissing('categories', ['slug' => 'video']);
+    }
 }

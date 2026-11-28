@@ -13,6 +13,11 @@ class CategorySeeder extends Seeder
      */
     public function run(): void
     {
+        // Preserve admin-managed navigation menu & categories on existing installations
+        if (Category::exists()) {
+            return;
+        }
+
         $categories = [
             [
                 'name' => 'Kenya',
