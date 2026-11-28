@@ -14,28 +14,28 @@
 
                 @if($leadStory)
                     <!-- Primary Lead Story: Full-bleed Hero Card on Mobile, Split Editorial on Desktop -->
-                    <article class="group bg-white rounded-xl border border-slate-200 hover:border-[#1b52bc] overflow-hidden transition shadow-sm">
-                        <div class="grid grid-cols-1 md:grid-cols-12 items-center">
+                    <article class="group bg-white rounded-2xl border border-slate-200/90 hover:border-[#1b52bc]/60 overflow-hidden transition-all duration-300 shadow-sm hover:shadow-md">
+                        <div class="grid grid-cols-1 md:grid-cols-12 items-stretch">
 
-                            <!-- Lead Image (6 cols on tablet/desktop) -->
-                            <a href="{{ route('articles.show', $leadStory->slug) }}" class="md:col-span-6 relative block aspect-[16/10] md:h-full overflow-hidden bg-slate-900">
-                                <img src="{{ $leadStory->featured_image }}" alt="{{ $leadStory->title }}" class="w-full h-full object-cover group-hover:scale-105 transition duration-500">
+                            <!-- Lead Image (6 cols on tablet/desktop; aspect-auto prevents width overflow into text column) -->
+                            <a href="{{ route('articles.show', $leadStory->slug) }}" class="md:col-span-6 min-w-0 relative block w-full aspect-[16/10] md:aspect-auto md:min-h-[340px] overflow-hidden bg-slate-900">
+                                <img src="{{ $leadStory->featured_image }}" alt="{{ $leadStory->title }}" class="absolute inset-0 w-full h-full object-cover object-center group-hover:scale-105 transition duration-500">
                                 <div class="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/30 to-transparent md:hidden"></div>
 
                                 @if($leadStory->is_breaking)
-                                    <span class="absolute top-3 left-3 bg-[#d9252a] text-white text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-xs shadow-md flex items-center gap-1.5">
+                                    <span class="absolute top-3.5 left-3.5 z-10 bg-[#d9252a] text-white text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded shadow-md flex items-center gap-1.5">
                                         <span class="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span>
                                         <span>Breaking Story</span>
                                     </span>
                                 @endif
                                 @if($leadStory->article_type === 'video' || $leadStory->video_url)
-                                    <div class="absolute bottom-3 right-3 bg-black/80 text-white p-2 rounded-full flex items-center justify-center">
+                                    <div class="absolute bottom-3 right-3 z-10 bg-black/80 text-white p-2 rounded-full flex items-center justify-center">
                                         <svg class="w-4 h-4 fill-current text-white" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
                                     </div>
                                 @endif
 
                                 <!-- Mobile Overlay Title -->
-                                <div class="absolute inset-x-0 bottom-0 p-4 md:hidden">
+                                <div class="absolute inset-x-0 bottom-0 z-10 p-4 md:hidden">
                                     <div class="flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-wider text-red-400 mb-1">
                                         <span>{{ $leadStory->category->name ?? 'Special Report' }}</span>
                                         <span class="text-slate-400">&bull;</span>
@@ -48,28 +48,36 @@
                             </a>
 
                             <!-- Lead Narrative Content (6 cols) -->
-                            <div class="md:col-span-6 p-4 sm:p-5 flex flex-col justify-between">
+                            <div class="md:col-span-6 min-w-0 p-5 sm:p-6 lg:p-7 flex flex-col justify-between bg-white">
                                 <div>
-                                    <div class="hidden md:flex items-center gap-2 text-[11px] font-extrabold uppercase tracking-wider text-[#d9252a] mb-1.5">
-                                        <span>{{ $leadStory->category->name ?? 'Special Report' }}</span>
+                                    <div class="hidden md:flex items-center gap-2 text-[11px] font-extrabold uppercase tracking-wider mb-2.5">
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded bg-red-50 text-[#d9252a] border border-red-100">
+                                            {{ $leadStory->category->name ?? 'Special Report' }}
+                                        </span>
                                         <span class="text-slate-300">&bull;</span>
-                                        <span class="text-slate-500 font-medium">{{ $leadStory->published_at?->diffForHumans() }}</span>
+                                        <span class="text-slate-500 font-semibold">{{ $leadStory->published_at?->diffForHumans() }}</span>
                                     </div>
 
-                                    <h1 class="hidden md:block text-xl sm:text-2xl font-extrabold tracking-tight text-slate-950 group-hover:text-[#1b52bc] transition leading-tight font-headline">
+                                    <h1 class="hidden md:block text-xl lg:text-[26px] font-extrabold tracking-tight text-slate-950 group-hover:text-[#1b52bc] transition leading-[1.18] font-headline">
                                         <a href="{{ route('articles.show', $leadStory->slug) }}">
                                             {{ $leadStory->title }}
                                         </a>
                                     </h1>
 
-                                    <p class="text-xs sm:text-sm text-slate-600 md:mt-2 line-clamp-3 leading-relaxed">
+                                    <p class="text-xs sm:text-sm text-slate-600 md:mt-3 line-clamp-3 leading-relaxed">
                                         {{ $leadStory->summary }}
                                     </p>
                                 </div>
 
-                                <div class="pt-3 mt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400">
-                                    <span class="font-bold text-slate-800">By {{ $leadStory->author->name ?? 'Kisii TV Desk' }}</span>
-                                    <span>{{ $leadStory->reading_time_minutes ?? 4 }} min read</span>
+                                <div class="pt-4 mt-5 border-t border-slate-100 flex items-center justify-between gap-2 text-[11px] text-slate-500">
+                                    <div class="flex items-center gap-2 min-w-0">
+                                        <span class="font-bold text-slate-800 truncate">By {{ $leadStory->author->name ?? 'Kisii TV Desk' }}</span>
+                                        <span class="text-slate-300">&bull;</span>
+                                        <span class="shrink-0">{{ $leadStory->reading_time_minutes ?? 4 }} min read</span>
+                                    </div>
+                                    <a href="{{ route('articles.show', $leadStory->slug) }}" class="shrink-0 font-extrabold text-[#1b52bc] group-hover:text-[#d9252a] transition uppercase tracking-wider text-[10px]">
+                                        Read &rarr;
+                                    </a>
                                 </div>
                             </div>
 
