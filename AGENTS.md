@@ -146,3 +146,10 @@ This project has domain-specific skills available in `**/skills/**`. You MUST ac
 - Run `vendor/bin/phpunit` to call the test runner directly. It accepts the same file path and `--filter=testName` arguments.
 
 </laravel-boost-guidelines>
+
+## Production Deployment & Migration Rule (Kisii TV)
+
+- After every push or code change, **always explicitly tell the user whether production migrations need to be run** (`Yes` or `No`).
+- Whenever migrations **are** needed (or whenever cache clearing/deploy steps are needed on production), **always provide the exact browser URL to paste and run**:
+  - `https://kisiitv.co.ke/migrate.php`
+
