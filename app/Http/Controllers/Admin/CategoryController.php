@@ -7,6 +7,7 @@ use App\Models\Article;
 use App\Models\Category;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
@@ -109,6 +110,47 @@ class CategoryController extends Controller
 
         return redirect()->route('admin.categories.index')
             ->with('success', "Category '{$category->name}' updated successfully.");
+    }
+
+    /**
+     * Bulk-save inline edits to navigation order, category names, menu visibility, and active status.
+     */
+    public function bulkSave(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'items' => ['required', 'array'],
+            'items.*.name' => ['required', 'string', 'max:100'],
+            'items.*.display_order' => ['required', 'integer', 'min:0'],
+            'items.*.show_in_menu' => ['nullable', 'boolean'],
+            'items.*.is_active' => ['nullable', 'boolean'],
+        ]);
+
+        $updatedCount = 0;
+
+        DB::transaction(function () use ($validated, &$updatedCount): void {
+            $categories = Category::whereIn('id', array_keys($validated['items']))->get()->keyBy('id');
+
+            foreach ($validated['items'] as $categoryId => $data) {
+                $category = $categories->get((int) $categoryId);
+                if (! $category) {
+                    continue;
+                }
+
+                $category->update([
+                    'name' => trim((string) $data['name']),
+                    'display_order' => (int) $data['display_order'],
+                    'show_in_menu' => filter_var($data['show_in_menu'] ?? false, FILTER_VALIDATE_BOOLEAN),
+                    'is_active' => filter_var($data['is_active'] ?? false, FILTER_VALIDATE_BOOLEAN),
+                ]);
+
+                $updatedCount++;
+            }
+        });
+
+        Cache::forget('nav_categories_menu_v2');
+
+        return redirect()->route('admin.categories.index')
+            ->with('success', "Saved navigation and category changes ({$updatedCount} categories updated).");
     }
 
     /**
