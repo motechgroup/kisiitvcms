@@ -415,13 +415,6 @@
                             Home
                         </a>
 
-                        @if($headerActiveEvent)
-                            <a href="{{ route('events.index') }}" class="px-2.5 lg:px-3 py-2.5 text-xs font-bold uppercase tracking-wider text-white hover:bg-[#d9252a] transition whitespace-nowrap flex items-center gap-1.5 {{ request()->is('events*') ? 'bg-[#d9252a]' : '' }}">
-                                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                                <span>Events</span>
-                            </a>
-                        @endif
-
                         @foreach($primaryNavCategories as $cat)
                             <div class="relative group" x-data="{ open: false }" @mouseenter="open = true" @mouseleave="open = false">
                                 <a href="{{ route('categories.show', $cat->slug) }}" class="px-2 lg:px-2.5 py-2.5 text-xs font-bold uppercase tracking-wider text-white hover:bg-[#0f3d99] transition flex items-center space-x-1 whitespace-nowrap">
@@ -491,6 +484,13 @@
                                 </div>
                             </div>
                         @endif
+
+                        @if($headerActiveEvent)
+                            <a href="{{ route('events.index') }}" class="px-2.5 lg:px-3 py-2.5 text-xs font-bold uppercase tracking-wider text-white hover:bg-[#d9252a] transition whitespace-nowrap flex items-center gap-1.5 {{ request()->is('events*') ? 'bg-[#d9252a]' : '' }}">
+                                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                                <span>Events</span>
+                            </a>
+                        @endif
                     </div>
 
                     <!-- Mobile Horizontal Scrollable Category Strip -->
@@ -499,6 +499,12 @@
                             class="px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider whitespace-nowrap shrink-0 transition {{ request()->is('/') ? 'bg-[#d9252a] text-white shadow-xs' : 'bg-white/10 text-white hover:bg-white/20' }}">
                             Home
                         </a>
+                        @foreach($navCategories as $cat)
+                            <a href="{{ route('categories.show', $cat->slug) }}"
+                                class="px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider whitespace-nowrap shrink-0 transition {{ request()->is('category/'.$cat->slug) ? 'bg-[#d9252a] text-white shadow-xs' : 'bg-white/10 text-white hover:bg-white/20' }}">
+                                {{ $cat->name }}
+                            </a>
+                        @endforeach
                         @if($headerActiveEvent)
                             <a href="{{ route('events.index') }}"
                                 class="px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider whitespace-nowrap shrink-0 transition flex items-center gap-1 {{ request()->is('events*') ? 'bg-[#d9252a] text-white shadow-xs' : 'bg-emerald-500/25 text-emerald-200 hover:bg-emerald-500/40' }}">
@@ -506,12 +512,6 @@
                                 <span>Events</span>
                             </a>
                         @endif
-                        @foreach($navCategories as $cat)
-                            <a href="{{ route('categories.show', $cat->slug) }}"
-                                class="px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider whitespace-nowrap shrink-0 transition {{ request()->is('category/'.$cat->slug) ? 'bg-[#d9252a] text-white shadow-xs' : 'bg-white/10 text-white hover:bg-white/20' }}">
-                                {{ $cat->name }}
-                            </a>
-                        @endforeach
                     </div>
 
                     <!-- Desktop Search Trigger Icon, Donate CTA & Watch Live CTA -->
