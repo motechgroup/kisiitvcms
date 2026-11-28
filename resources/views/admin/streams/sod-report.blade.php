@@ -25,13 +25,31 @@
                 </span>
             </div>
             <h2 class="text-lg font-black text-slate-900 font-headline">{{ $liveStream->title }}</h2>
-            <div class="flex flex-wrap items-center gap-2 pt-1">
+            @php
+                $reportShareText = 'Watch "'.$liveStream->title.'" live on Kisii TV SOD ('.$currency.' '.number_format((float) $liveStream->sod_price, 0).')';
+            @endphp
+            <div class="flex flex-wrap items-center gap-1.5 pt-1">
                 <code class="text-[11px] text-[#1b52bc] bg-blue-50 px-2 py-0.5 rounded font-mono">{{ $liveStream->sodUrl() }}</code>
                 <button type="button"
                     onclick="navigator.clipboard.writeText('{{ $liveStream->sodUrl() }}'); this.innerText='Copied!'; setTimeout(() => this.innerText='Copy Link', 1800);"
                     class="px-2.5 py-0.5 rounded bg-slate-900 hover:bg-slate-700 text-white text-[10px] font-bold cursor-pointer">
                     Copy Link
                 </button>
+                <a href="https://api.whatsapp.com/send?text={{ urlencode($reportShareText.' - '.$liveStream->sodUrl()) }}"
+                    target="_blank" rel="noopener"
+                    class="px-2.5 py-0.5 rounded bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold">
+                    WhatsApp
+                </a>
+                <a href="https://www.facebook.com/sharer/sharer.php?u={{ urlencode($liveStream->sodUrl()) }}"
+                    target="_blank" rel="noopener"
+                    class="px-2.5 py-0.5 rounded bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-bold">
+                    Facebook
+                </a>
+                <a href="https://twitter.com/intent/tweet?text={{ urlencode($reportShareText) }}&url={{ urlencode($liveStream->sodUrl()) }}&via=kisiitv"
+                    target="_blank" rel="noopener"
+                    class="px-2.5 py-0.5 rounded bg-slate-800 hover:bg-black text-white text-[10px] font-bold">
+                    X
+                </a>
             </div>
         </div>
 

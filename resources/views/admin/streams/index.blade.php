@@ -114,13 +114,31 @@
                                     </span>
                                 </div>
                                 @if($stream->is_sod)
-                                    <div class="flex items-center gap-2 mt-1">
+                                    @php
+                                        $adminSodShareText = 'Watch "'.$stream->title.'" live on Kisii TV SOD ('.$stream->sod_currency.' '.number_format((float) $stream->sod_price, 0).')';
+                                    @endphp
+                                    <div class="flex flex-wrap items-center gap-1.5 mt-1.5">
                                         <code class="text-[10px] text-[#1b52bc] bg-blue-50 px-1.5 py-0.5 rounded font-mono truncate max-w-xs">{{ $stream->sodUrl() }}</code>
                                         <button type="button"
                                             onclick="navigator.clipboard.writeText('{{ $stream->sodUrl() }}'); this.innerText='Copied!'; setTimeout(() => this.innerText='Copy Link', 1800);"
-                                            class="px-2 py-0.5 rounded bg-slate-900 text-white text-[10px] font-bold cursor-pointer">
+                                            class="px-2 py-0.5 rounded bg-slate-900 hover:bg-slate-700 text-white text-[10px] font-bold cursor-pointer">
                                             Copy Link
                                         </button>
+                                        <a href="https://api.whatsapp.com/send?text={{ urlencode($adminSodShareText.' - '.$stream->sodUrl()) }}"
+                                            target="_blank" rel="noopener" title="Share on WhatsApp"
+                                            class="px-2 py-0.5 rounded bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold">
+                                            WhatsApp
+                                        </a>
+                                        <a href="https://www.facebook.com/sharer/sharer.php?u={{ urlencode($stream->sodUrl()) }}"
+                                            target="_blank" rel="noopener" title="Share on Facebook"
+                                            class="px-2 py-0.5 rounded bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-bold">
+                                            Facebook
+                                        </a>
+                                        <a href="https://twitter.com/intent/tweet?text={{ urlencode($adminSodShareText) }}&url={{ urlencode($stream->sodUrl()) }}&via=kisiitv"
+                                            target="_blank" rel="noopener" title="Share on X"
+                                            class="px-2 py-0.5 rounded bg-slate-800 hover:bg-black text-white text-[10px] font-bold">
+                                            X
+                                        </a>
                                     </div>
                                 @else
                                     <div class="text-[11px] text-slate-400 font-mono truncate max-w-md mt-0.5">
